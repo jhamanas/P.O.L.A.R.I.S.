@@ -16,6 +16,11 @@ from .weather import WeatherGenerator
 from .engine import SimulationEngine, SimulationResult, run_station
 from .forecast import run_forecast, ForecastResult, ConsumableForecast
 from .alerts import derive_alerts, Alert, AlertSeverity, AlertCategory
+from .scenarios import (
+    ScenarioSpec, PRESETS, run_scenario, ScenarioResult,
+    run_sensitivity, SensitivityPoint,
+    run_backtest, BacktestCheck,
+)
 
 __all__ = [
     "AssetType", "Environment",
@@ -30,4 +35,7 @@ __all__ = [
     "SimulationEngine", "SimulationResult", "run_station",
     "run_forecast", "ForecastResult", "ConsumableForecast",
     "derive_alerts", "Alert", "AlertSeverity", "AlertCategory",
+    "ScenarioSpec", "PRESETS", "run_scenario", "ScenarioResult",
+    "run_sensitivity", "SensitivityPoint",
+    "run_backtest", "BacktestCheck",
 ]

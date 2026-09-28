@@ -89,6 +89,11 @@ default_seed:
   unit: "dimensionless"
   source: "arbitrary – for reproducible demos"
 
+resupply_default_day:
+  value: 350.0
+  unit: "day_of_year"
+  source: "assumption – Indian Antarctic Expedition typically arrives mid-December (day ~350)"
+
 # --- Weather (defaults, overridden per station) ---
 weather_ar1_temp_rho:
   value: 0.95
