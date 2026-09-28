@@ -1,0 +1,149 @@
+# =============================================================
+# Maitri Station Configuration
+# Schirmacher Oasis, 70°46'S 11°44'E — commissioned 1989
+# Fixed steel + insulated panel structure
+# =============================================================
+
+name: Maitri
+location:
+  lat: -70.77
+  lon: 11.73
+  elevation_m: 117
+  source: "NCAOR Maitri Station factsheet"
+
+crew:
+  summer: 25
+  winter: 15
+  source: "NCAOR expedition reports"
+
+# --- Weather parameters (station-specific) ---
+weather:
+  winter_temp_avg:
+    value: -18.0
+    unit: "°C"
+    source: "Schirmacher Oasis climatology – milder than coastal Bharati"
+  summer_temp_avg:
+    value: 2.0
+    unit: "°C"
+    source: "Schirmacher Oasis summer mean, lake-area microclimate"
+  avg_wind:
+    value: 7.7
+    unit: "m/s"
+    source: "~15 kt average, Schirmacher somewhat sheltered"
+  storm_wind:
+    value: 25.7
+    unit: "m/s"
+    source: "50 kt storm threshold from Maitri met logs"
+  solar_peak:
+    value: 750.0
+    unit: "W/m2"
+    source: "assumption – slightly lower than Bharati due to higher latitude"
+
+# --- Resupply ---
+resupply:
+  nominal_day: 350
+  window_days: 60
+  source: "assumption – December ship window via Novo runway or direct"
+
+# --- Assets ---
+zones:
+  - id: maitri.zone.living
+    label: "Living Quarters"
+    volume_m3: 1200.0
+    envelope_area_m2: 600.0
+    insulation_r_value: 4.5
+    target_temp: 20.0
+    source: "assumption – older construction, slightly lower insulation"
+
+  - id: maitri.zone.lab
+    label: "Laboratories"
+    volume_m3: 500.0
+    envelope_area_m2: 280.0
+    insulation_r_value: 4.0
+    target_temp: 18.0
+    source: "assumption"
+
+  - id: maitri.zone.workshop
+    label: "Workshop & Plant Room"
+    volume_m3: 350.0
+    envelope_area_m2: 220.0
+    insulation_r_value: 2.5
+    target_temp: 10.0
+    source: "assumption – utility area, less insulated"
+
+generators:
+  - id: maitri.gen1
+    label: "DG-1"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.5
+    fuel_rate_half_load: 10.0
+    source: "62.5 kVA genset, slightly older than Bharati units"
+
+  - id: maitri.gen2
+    label: "DG-2"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.5
+    fuel_rate_half_load: 10.0
+    source: "62.5 kVA genset"
+
+  - id: maitri.gen3
+    label: "DG-3"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.5
+    fuel_rate_half_load: 10.0
+    source: "62.5 kVA genset"
+
+renewables:
+  - id: maitri.wind1
+    label: "Experimental Wind Turbine"
+    type: wind
+    capacity_kw: 5.0
+    cut_in_wind: 3.5
+    rated_wind: 12.0
+    cut_out_wind: 25.0
+    source: "assumption – small experimental turbine, NCAOR renewable energy pilot"
+
+storage:
+  - id: maitri.storage.fuel
+    label: "Diesel Tank Farm"
+    commodity: fuel
+    capacity_l: 250000.0
+    initial_level_l: 170000.0
+    source: "NCAOR logistics – ~170 kL annual diesel for Maitri"
+
+  - id: maitri.storage.water
+    label: "Potable Water Tank"
+    commodity: water
+    capacity_l: 40000.0
+    initial_level_l: 35000.0
+    source: "assumption"
+
+  - id: maitri.storage.food
+    label: "Food Stores"
+    commodity: food
+    capacity_kg: 25000.0
+    initial_level_kg: 20000.0
+    source: "assumption"
+
+  - id: maitri.storage.battery
+    label: "Battery Bank"
+    commodity: battery
+    capacity_kwh: 50.0
+    initial_soc_kwh: 40.0
+    max_charge_kw: 15.0
+    max_discharge_kw: 15.0
+    round_trip_efficiency: 0.88
+    min_soc_fraction: 0.10
+    source: "assumption – smaller battery bank paired with wind turbine"
+
+equipment:
+  - id: maitri.equip.snowmelt
+    label: "Snow-melt / Lake-water Plant"
+    capacity_l_per_day: 2500.0
+    energy_kw: 12.0
+    source: "assumption – uses lake water in summer, snow-melt in winter"
+
+  - id: maitri.equip.heating
+    label: "Waste Heat + Diesel Boiler"
+    capacity_kw: 90.0
+    source: "assumption – diesel boiler supplements waste heat at Maitri"

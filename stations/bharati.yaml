@@ -1,0 +1,148 @@
+# =============================================================
+# Bharati Station Configuration
+# Larsemann Hills, 69°24'S 76°12'E — commissioned 2012
+# Container-based modular design (134 containers on stilts)
+# =============================================================
+
+name: Bharati
+location:
+  lat: -69.4
+  lon: 76.2
+  elevation_m: 35
+  source: "NCAOR Bharati Station factsheet"
+
+crew:
+  summer: 23
+  winter: 15
+  source: "NCAOR 40th/41st ISEA crew manifests"
+
+# --- Weather parameters (station-specific) ---
+weather:
+  winter_temp_avg:
+    value: -20.0
+    unit: "°C"
+    source: "BAS/NCAOR climatology, Larsemann Hills winter mean"
+  summer_temp_avg:
+    value: 0.0
+    unit: "°C"
+    source: "BAS/NCAOR climatology, Larsemann Hills summer mean"
+  avg_wind:
+    value: 10.3
+    unit: "m/s"
+    source: "Larsemann Hills AWS data, ~20 kt mean converted"
+  storm_wind:
+    value: 30.9
+    unit: "m/s"
+    source: "60 kt storm threshold from NCAOR met reports"
+  solar_peak:
+    value: 800.0
+    unit: "W/m2"
+    source: "assumption – peak midsummer clear-sky at 69°S"
+
+# --- Resupply ---
+resupply:
+  nominal_day: 350
+  window_days: 60
+  source: "assumption – December ship window"
+
+# --- Assets ---
+zones:
+  - id: bharati.zone.living
+    label: "Living Quarters"
+    volume_m3: 1500.0
+    envelope_area_m2: 700.0
+    insulation_r_value: 5.0
+    target_temp: 20.0
+    source: "NCAOR Bharati layout drawings (estimated from 134-container footprint)"
+
+  - id: bharati.zone.lab
+    label: "Laboratories"
+    volume_m3: 600.0
+    envelope_area_m2: 320.0
+    insulation_r_value: 4.5
+    target_temp: 18.0
+    source: "assumption – estimated from station layout"
+
+  - id: bharati.zone.workshop
+    label: "Workshop & Plant"
+    volume_m3: 400.0
+    envelope_area_m2: 250.0
+    insulation_r_value: 3.0
+    target_temp: 10.0
+    source: "assumption – less insulated utility zone"
+
+generators:
+  - id: bharati.gen1
+    label: "DG-1 (Kirloskar)"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.0
+    fuel_rate_half_load: 9.5
+    source: "Kirloskar 62.5 kVA genset spec sheet (~50 kW at 0.8 PF)"
+
+  - id: bharati.gen2
+    label: "DG-2 (Kirloskar)"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.0
+    fuel_rate_half_load: 9.5
+    source: "Kirloskar 62.5 kVA genset spec sheet"
+
+  - id: bharati.gen3
+    label: "DG-3 (Kirloskar)"
+    capacity_kw: 50.0
+    fuel_rate_full_load: 15.0
+    fuel_rate_half_load: 9.5
+    source: "Kirloskar 62.5 kVA genset spec sheet"
+
+storage:
+  - id: bharati.storage.fuel
+    label: "Diesel Tank Farm"
+    commodity: fuel
+    capacity_l: 200000.0
+    initial_level_l: 180000.0
+    source: "NCAOR logistics – ~150 kL annual diesel supply for Bharati, topped up at resupply"
+
+  - id: bharati.storage.water
+    label: "Potable Water Tank"
+    commodity: water
+    capacity_l: 50000.0
+    initial_level_l: 40000.0
+    source: "assumption – tank capacity estimated from crew needs"
+
+  - id: bharati.storage.food
+    label: "Food Stores"
+    commodity: food
+    capacity_kg: 25000.0
+    initial_level_kg: 20000.0
+    source: "assumption – ~2.5 kg/day × 15 crew × 365 days ≈ 13.7 t, buffer included"
+
+  - id: bharati.storage.battery
+    label: "Battery Bank"
+    commodity: battery
+    capacity_kwh: 100.0
+    initial_soc_kwh: 80.0
+    max_charge_kw: 25.0
+    max_discharge_kw: 25.0
+    round_trip_efficiency: 0.90
+    min_soc_fraction: 0.10
+    source: "assumption – lithium battery bank for renewable integration"
+
+renewables:
+  - id: bharati.solar1
+    label: "Rooftop Solar Array"
+    type: solar
+    capacity_kw: 10.0
+    efficiency: 0.18
+    reference_irradiance: 1000.0
+    source: "assumption – small experimental solar array"
+
+equipment:
+  - id: bharati.equip.snowmelt
+    label: "Snow-melt Plant"
+    capacity_l_per_day: 2000.0
+    energy_kw: 15.0
+    source: "assumption – electric snow melter capacity"
+
+  - id: bharati.equip.heating
+    label: "Waste Heat Recovery + Electric Heaters"
+    capacity_kw: 80.0
+    source: "assumption – combined heating capacity from generator waste heat and backup"
