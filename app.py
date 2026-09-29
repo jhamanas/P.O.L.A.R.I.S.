@@ -24,6 +24,8 @@ from antarctic_twin.types import AssetType
 from antarctic_twin.scenarios import (
     PRESETS, run_scenario, run_sensitivity, run_backtest,
 )
+from antarctic_twin.database import AuditLogger, Role, User, check_permission, get_provenance
+from antarctic_twin.interfaces import YamlDataSource
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -37,17 +39,37 @@ st.set_page_config(
 
 BASE = Path(__file__).parent
 
+# Phase 5 initialization
+data_source = YamlDataSource(BASE)
+audit_logger = AuditLogger(BASE / "audit.db")
 
 # ---------------------------------------------------------------------------
-# Sidebar: scenario controls
+# Authentication & Role Simulation
 # ---------------------------------------------------------------------------
+if "user" not in st.session_state:
+    st.session_state.user = User(username="admin", role=Role.ADMIN)
+
 with st.sidebar:
     st.image("logo.png", width=60)
+    st.title("User Session")
+    
+    # Role switcher for demonstration
+    user_role = st.selectbox(
+        "Current Role (Simulated)", 
+        [Role.ADMIN, Role.OPERATOR, Role.SCIENTIST, Role.GUEST],
+        index=0
+    )
+    if user_role != st.session_state.user.role:
+        st.session_state.user = User(username=user_role.value.lower(), role=user_role)
+        audit_logger.log_action(st.session_state.user, "Login", f"Switched role to {user_role.value}")
+        st.rerun()
+
+    st.divider()
     st.title("Scenario Controls")
     st.caption("Adjust parameters to explore what-if scenarios")
 
     station_name = st.selectbox(
-        "Station", ["bharati", "maitri"], format_func=str.title
+        "Station", data_source.list_stations(), format_func=str.title
     )
 
     st.divider()
@@ -85,8 +107,14 @@ with st.sidebar:
     forecast_runs = st.slider("Forecast MC runs", 20, 500, 100, 10,
                               help="More runs = smoother fan chart, slower")
 
-    run_btn = st.button("Run Simulation", type="primary", use_container_width=True)
-
+    run_btn = st.button(
+        "Run Simulation",
+        type="primary",
+        use_container_width=True,
+        disabled=not check_permission(st.session_state.user, "run_simulation"),
+    )
+    if not check_permission(st.session_state.user, "run_simulation"):
+        st.caption("Your role does not have permission to run simulations.")
 
 # ---------------------------------------------------------------------------
 # Header
@@ -114,8 +142,14 @@ if not run_btn and "result" not in st.session_state:
     st.stop()
 
 if run_btn:
-    station_config = load_station(BASE / "stations" / f"{station_name}.yaml")
-    params = load_params(BASE / "params.yaml")
+    audit_logger.log_action(
+        st.session_state.user, 
+        "Run Simulation", 
+        f"Station: {station_name}, Temp Offset: {temp_offset}, Wind Mult: {wind_mult}"
+    )
+    
+    station_config = data_source.get_station_config(station_name)
+    params = data_source.get_global_params()
 
     # Apply scenario overrides
     modified_config = dict(station_config)
@@ -204,8 +238,8 @@ final = result.final_state
 # ---------------------------------------------------------------------------
 # Tab layout
 # ---------------------------------------------------------------------------
-tab_overview, tab_forecast, tab_energy, tab_station, tab_alerts, tab_scenarios, tab_validation = st.tabs(
-    ["Overview", "Forecast", "Energy", "Station Plan", "Alerts", "Scenarios", "Validation"]
+tab_overview, tab_forecast, tab_energy, tab_station, tab_alerts, tab_scenarios, tab_validation, tab_provenance = st.tabs(
+    ["Overview", "Forecast", "Energy", "Station Plan", "Alerts", "Scenarios", "Validation", "Provenance & Audit"]
 )
 
 
@@ -843,3 +877,101 @@ with tab_validation:
                     st.markdown(f"**Actual:** {check.actual_value:,.2f} {check.unit}")
                     st.markdown(f"**Result:** {'PASS' if check.passed else 'FAIL'}")
 
+
+# ===== TAB 8: PROVENANCE & AUDIT =====
+with tab_provenance:
+    prov_tab1, prov_tab2, prov_tab3 = st.tabs(
+        ["Parameter Provenance", "Audit Log", "System Info"]
+    )
+
+    # --- Parameter Provenance ---
+    with prov_tab1:
+        st.subheader("Parameter Provenance")
+        st.caption("Every parameter in the model is traced to a published source or marked as an assumption.")
+
+        provenance = get_provenance(params)
+        if provenance:
+            st.dataframe(
+                provenance,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Parameter": st.column_config.TextColumn("Parameter", width="medium"),
+                    "Value": st.column_config.TextColumn("Value", width="small"),
+                    "Unit": st.column_config.TextColumn("Unit", width="small"),
+                    "Source": st.column_config.TextColumn("Source / Citation", width="large"),
+                },
+            )
+
+            # Stats
+            n_sourced = sum(1 for p in provenance if "assumption" not in p["Source"].lower())
+            n_total = len(provenance)
+            st.info(
+                f"**{n_sourced}** of **{n_total}** parameters have published sources. "
+                f"**{n_total - n_sourced}** are marked as assumptions."
+            )
+        else:
+            st.warning("No parameter data available. Run a simulation first.")
+
+    # --- Audit Log ---
+    with prov_tab2:
+        st.subheader("Audit Log")
+        st.caption("Tracks who did what and when, for accountability and reproducibility.")
+
+        if check_permission(st.session_state.user, "view_audit"):
+            logs = audit_logger.get_logs(limit=200)
+            total = audit_logger.count()
+
+            st.metric("Total audit entries", total)
+
+            if logs:
+                log_data = [
+                    {
+                        "Timestamp": entry.timestamp,
+                        "User": entry.username,
+                        "Role": entry.role,
+                        "Action": entry.action,
+                        "Details": entry.details,
+                    }
+                    for entry in logs
+                ]
+                st.dataframe(log_data, use_container_width=True, hide_index=True)
+            else:
+                st.info("No audit entries yet. Run a simulation to generate entries.")
+
+            # Clear button (Admin only)
+            if check_permission(st.session_state.user, "clear_audit"):
+                if st.button("Clear Audit Log", type="secondary"):
+                    audit_logger.clear()
+                    audit_logger.log_action(
+                        st.session_state.user, "Clear Audit Log",
+                        "All previous audit entries deleted",
+                    )
+                    st.rerun()
+        else:
+            st.warning("Your role does not have permission to view the audit log.")
+
+    # --- System Info ---
+    with prov_tab3:
+        st.subheader("System Information")
+
+        st.markdown("**Platform:** Antarctic Station Digital Twin")
+        st.markdown("**Problem Statement:** SIH26060 - Digital Platform for Remote Management of Indian Antarctic Research Stations")
+        st.markdown("**Data Sources:** YAML configuration files (local)")
+
+        st.divider()
+        st.markdown("**Available Stations:**")
+        for s in data_source.list_stations():
+            st.markdown(f"- {s.title()}")
+
+        st.divider()
+        st.markdown("**Role Permissions:**")
+        from antarctic_twin.database import ROLE_PERMISSIONS
+        for role, perms in ROLE_PERMISSIONS.items():
+            st.markdown(f"- **{role.value}:** {', '.join(sorted(perms))}")
+
+        st.divider()
+        st.markdown("**Current User:**")
+        user = st.session_state.user
+        st.markdown(f"- Username: `{user.username}`")
+        st.markdown(f"- Role: `{user.role.value}`")
