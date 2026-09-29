@@ -255,8 +255,8 @@ def step(state: StationState, env: Environment, dt: float,
 
     for gen_asset in graph.get_by_type(AssetType.GENERATOR):
         gs = s.generators[gen_asset.id]
-        # Update condition based on running hours
-        gs.condition = update_condition(gs.running_hours, gs.condition, gen_mtbf)
+        # Update condition based on previous timestep's load and duration
+        gs.condition = update_condition(gs.condition, dt, gs.load_fraction, gen_mtbf)
 
         # Check for new fault (only if not already faulted)
         if not gs.faulted and fault_rng_values and gen_asset.id in fault_rng_values:

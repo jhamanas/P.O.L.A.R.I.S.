@@ -85,12 +85,11 @@ fuel_id = [sid for sid in r_base.history[0].storage if "fuel" in sid][0]
 fuel_base_200 = r_base.history[200*24].storage[fuel_id].level
 fuel_base_end = r_base.final_state.storage[fuel_id].level
 
+from antarctic_twin.scenarios import Scenario, fork_scenario
+
 # Cold scenario
-cold_cfg = dict(cfg)
-cold_weather = dict(cfg["weather"])
-cold_weather["winter_temp_avg"] = {"value": -30.0, "unit": "C", "source": "cold scenario"}
-cold_weather["summer_temp_avg"] = {"value": -5.0, "unit": "C", "source": "cold scenario"}
-cold_cfg["weather"] = cold_weather
+cold_scenario = Scenario(name="Cold", temp_offset=-10.0)
+cold_cfg = fork_scenario(cfg, params, cold_scenario)
 r_cold = SimulationEngine(cold_cfg, params, seed=42).run(days=365)
 fuel_cold_200 = r_cold.history[200*24].storage[fuel_id].level
 fuel_cold_end = r_cold.final_state.storage[fuel_id].level

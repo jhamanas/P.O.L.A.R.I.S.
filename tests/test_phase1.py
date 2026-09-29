@@ -156,16 +156,24 @@ def test_wind_turbine_power_curve():
 # ---- Condition degradation ----
 
 def test_condition_degrades_with_hours():
-    """Condition should decrease as running hours increase."""
-    c0 = update_condition(0, 1.0, mtbf_hours=5000)
-    c1 = update_condition(2000, 1.0, mtbf_hours=5000)
-    c2 = update_condition(5000, 1.0, mtbf_hours=5000)
-    c3 = update_condition(10000, 1.0, mtbf_hours=5000)
+    """Condition should decrease based on dt and load fraction."""
+    c0 = 1.0
+    # Run for 2000 hours at normal load
+    c1 = update_condition(c0, dt_hours=2000, load_fraction=0.5, mtbf_hours=5000)
+    # Run another 3000 hours (total 5000) at normal load
+    c2 = update_condition(c1, dt_hours=3000, load_fraction=0.5, mtbf_hours=5000)
+    # Run for 5000 more hours at normal load (total 10000)
+    c3 = update_condition(c2, dt_hours=5000, load_fraction=0.5, mtbf_hours=5000)
 
     assert c0 == 1.0
     assert c1 < c0
     assert c2 < c1
     assert c3 == 0.0
+
+def test_condition_degrades_faster_under_load():
+    c_normal = update_condition(1.0, dt_hours=1000, load_fraction=0.5, mtbf_hours=5000)
+    c_high = update_condition(1.0, dt_hours=1000, load_fraction=0.9, mtbf_hours=5000)
+    assert c_high < c_normal
 
 
 # ---- Fault probability ----

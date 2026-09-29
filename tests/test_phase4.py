@@ -2,9 +2,9 @@
 
 from pathlib import Path
 from antarctic_twin.scenarios import (
-    ScenarioSpec, PRESETS, run_scenario,
+    Scenario, PRESETS, run_scenario,
     run_sensitivity, run_backtest,
-    apply_scenario,
+    fork_scenario,
 )
 from antarctic_twin.config import load_station, load_params
 from antarctic_twin.alerts import AlertSeverity
@@ -20,8 +20,8 @@ PARAMS = BASE / "params.yaml"
 # ================================================================
 
 def test_scenario_spec_diff():
-    """ScenarioSpec should report non-default values as diff."""
-    spec = ScenarioSpec(
+    """Scenario should report non-default values as diff."""
+    spec = Scenario(
         name="Test",
         temp_offset=-10.0,
         faults=["gen1"],
@@ -48,11 +48,11 @@ def test_presets_have_descriptions():
         assert len(spec.description) > 20, f"Preset '{key}' has no description"
 
 
-def test_apply_scenario_modifies_config():
-    """apply_scenario should modify the config according to the spec."""
+def test_fork_scenario_modifies_config():
+    """fork_scenario should modify the config according to the spec."""
     cfg = load_station(STATION)
-    spec = ScenarioSpec(name="Test", temp_offset=-10.0, crew_delta=5)
-    modified = apply_scenario(cfg, {}, spec)
+    spec = Scenario(name="Test", temp_offset=-10.0, crew_delta=5)
+    modified = fork_scenario(cfg, {}, spec)
 
     # Crew should be increased
     assert modified["crew"]["winter"] == cfg["crew"]["winter"] + 5

@@ -165,19 +165,29 @@ def derive_alerts(
                                    "electrical load. Ensure backup generator is on standby.",
                 timestamp_hours=t,
             ))
-        elif gs.condition < 0.3:
+        elif gs.condition < 0.05:
             alerts.append(Alert(
-                id=f"equipment.condition.{gen_asset.id}",
+                id=f"equipment.wear.critical.{gen_asset.id}",
+                severity=AlertSeverity.RED,
+                category=AlertCategory.EQUIPMENT,
+                cause=f"{gen_asset.label} has reached critical wear and tear (>95%)",
+                evidence=f"Running hours: {gs.running_hours:,.0f}h. "
+                         f"Condition score: {gs.condition:.2f}. ",
+                consequence="Imminent risk of total failure. Extreme wear detected.",
+                recommended_action="Shut down generator immediately. Perform major overhaul.",
+                timestamp_hours=t,
+            ))
+        elif gs.condition < 0.2:
+            alerts.append(Alert(
+                id=f"equipment.wear.warning.{gen_asset.id}",
                 severity=AlertSeverity.AMBER,
                 category=AlertCategory.EQUIPMENT,
-                cause=f"{gen_asset.label} condition degraded to {gs.condition:.0%}",
+                cause=f"{gen_asset.label} has elevated wear and tear (>80%)",
                 evidence=f"Running hours: {gs.running_hours:,.0f}h. "
                          f"Condition score: {gs.condition:.2f}. "
-                         f"Fault probability increasing.",
-                consequence="Elevated risk of generator fault. May require unplanned "
-                            "maintenance or replacement parts.",
-                recommended_action="Schedule preventive maintenance during next calm period. "
-                                   "Verify spare parts availability.",
+                         f"Fault probability increasing rapidly.",
+                consequence="Elevated risk of generator fault. Efficiency loss likely.",
+                recommended_action="Schedule preventive maintenance. Verify spare parts.",
                 timestamp_hours=t,
             ))
 

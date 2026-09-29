@@ -13,3 +13,6 @@ env.bak/
 venv.bak/
 *.log
 audit.db
+
+tmp*.yaml
+audit.db

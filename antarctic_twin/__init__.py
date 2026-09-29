@@ -17,7 +17,7 @@ from .engine import SimulationEngine, SimulationResult, run_station
 from .forecast import run_forecast, ForecastResult, ConsumableForecast
 from .alerts import derive_alerts, Alert, AlertSeverity, AlertCategory
 from .scenarios import (
-    ScenarioSpec, PRESETS, run_scenario, ScenarioResult,
+    Scenario, PRESETS, run_scenario, ScenarioResult,
     run_sensitivity, SensitivityPoint,
     run_backtest, BacktestCheck,
 )
@@ -50,7 +50,7 @@ __all__ = [
     # Alerts
     "derive_alerts", "Alert", "AlertSeverity", "AlertCategory",
     # Scenarios
-    "ScenarioSpec", "PRESETS", "run_scenario", "ScenarioResult",
+    "Scenario", "PRESETS", "run_scenario", "ScenarioResult",
     "run_sensitivity", "SensitivityPoint",
     "run_backtest", "BacktestCheck",
     # Database & RBAC

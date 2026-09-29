@@ -33,7 +33,7 @@ from .alerts import derive_alerts, Alert
 # ---------------------------------------------------------------------------
 
 @dataclass
-class ScenarioSpec:
+class Scenario:
     """Lightweight overlay that describes a what-if deviation from baseline."""
     name: str
     description: str = ""
@@ -74,39 +74,39 @@ class ScenarioSpec:
 # Six presets
 # ---------------------------------------------------------------------------
 
-PRESETS: dict[str, ScenarioSpec] = {
-    "cold_snap": ScenarioSpec(
+PRESETS: dict[str, Scenario] = {
+    "cold_snap": Scenario(
         name="Cold Snap",
         description="Sudden 15 deg C temperature drop simulating an extreme cold event "
                     "lasting the entire season. Tests heating and fuel resilience.",
         temp_offset=-15.0,
     ),
-    "prolonged_blizzard": ScenarioSpec(
+    "prolonged_blizzard": Scenario(
         name="Prolonged Blizzard",
         description="High winds (1.8x normal) and moderate cold (-8 deg C). "
                     "Increases convective heat loss and may ground outdoor ops.",
         temp_offset=-8.0,
         wind_mult=1.8,
     ),
-    "delayed_resupply": ScenarioSpec(
+    "delayed_resupply": Scenario(
         name="Delayed Resupply",
         description="The resupply ship is delayed by 60 days due to sea-ice "
                     "conditions. Tests consumable margin adequacy.",
         resupply_delay_days=60.0,
     ),
-    "generator_failure": ScenarioSpec(
+    "generator_failure": Scenario(
         name="Generator Failure",
         description="Primary generator (gen1) fails at the start. Station must "
                     "run on backup generators with reduced total capacity.",
         faults=["gen1"],
     ),
-    "crew_surge": ScenarioSpec(
+    "crew_surge": Scenario(
         name="Crew Surge",
         description="Summer crew overlaps into winter: +8 extra personnel. "
                     "Increases food, water, and base electrical consumption.",
         crew_delta=8,
     ),
-    "combined_winter_isolation": ScenarioSpec(
+    "combined_winter_isolation": Scenario(
         name="Combined Winter Isolation",
         description="Worst-case winter: cold snap, generator fault, and delayed "
                     "resupply all happen simultaneously. The stress test.",
@@ -125,7 +125,7 @@ PRESETS: dict[str, ScenarioSpec] = {
 @dataclass
 class ScenarioResult:
     """Result of running a scenario against its baseline."""
-    scenario: ScenarioSpec
+    scenario: Scenario
     baseline: SimulationResult
     scenario_result: SimulationResult
     baseline_forecast: ForecastResult | None = None
@@ -182,9 +182,9 @@ class ScenarioResult:
         }
 
 
-def apply_scenario(station_config: dict, params: dict,
-                   spec: ScenarioSpec) -> dict:
-    """Apply a ScenarioSpec to a station config, returning a modified copy."""
+def fork_scenario(station_config: dict, params: dict,
+                   spec: Scenario) -> dict:
+    """Apply a Scenario to a station config, returning a modified copy."""
     cfg = copy.deepcopy(station_config)
 
     # Temperature offset
@@ -199,10 +199,10 @@ def apply_scenario(station_config: dict, params: dict,
     # Wind multiplier
     if spec.wind_mult != 1.0:
         weather = cfg.setdefault("weather", {})
-        if "wind_mean" in weather:
-            entry = dict(weather["wind_mean"])
+        if "avg_wind" in weather:
+            entry = dict(weather["avg_wind"])
             entry["value"] = entry["value"] * spec.wind_mult
-            weather[key] = entry
+            weather["avg_wind"] = entry
 
     # Crew delta
     if spec.crew_delta != 0:
@@ -215,7 +215,7 @@ def apply_scenario(station_config: dict, params: dict,
 def run_scenario(
     station_path: str | Path,
     params_path: str | Path,
-    spec: ScenarioSpec,
+    spec: Scenario,
     seed: int = 42,
     days: int = 365,
     forecast_runs: int = 100,
@@ -232,7 +232,7 @@ def run_scenario(
     baseline_result = baseline_engine.run(days=days)
 
     # --- Scenario ---
-    scenario_config = apply_scenario(station_config, params, spec)
+    scenario_config = fork_scenario(station_config, params, spec)
     scenario_engine = SimulationEngine(scenario_config, params, seed=seed)
 
     # Inject faults

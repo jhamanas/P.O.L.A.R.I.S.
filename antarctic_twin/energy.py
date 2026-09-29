@@ -351,23 +351,14 @@ def dispatch_energy(total_demand_kw: float, env: Environment, dt_hours: float,
 # Equipment condition model
 # ---------------------------------------------------------------------------
 
-def update_condition(running_hours: float, condition: float,
-                     mtbf_hours: float = 5000.0) -> float:
-    """Update equipment condition score based on running hours.
-
-    Condition degrades linearly from 1.0 to 0.0 over 2×MTBF hours.
-    This is a simplification — real degradation is nonlinear.
-
-    Args:
-        running_hours: Total running hours so far.
-        condition: Current condition score (0-1).
-        mtbf_hours: Mean time between failures.
-
-    Returns:
-        New condition score (0-1).
-    """
-    # Condition = 1 - (hours / (2 × MTBF)), clamped to [0, 1]
-    return max(0.0, min(1.0, 1.0 - running_hours / (2.0 * mtbf_hours)))
+def update_condition(condition: float, dt_hours: float, load_fraction: float, mtbf_hours: float = 5000.0) -> float:
+    if load_fraction == 0:
+        return condition
+    wear_multiplier = 1.0
+    if load_fraction > 0.8:
+        wear_multiplier = 3.0
+    wear = (1.0 / (2.0 * mtbf_hours)) * dt_hours * wear_multiplier
+    return max(0.0, condition - wear)
 
 
 def check_fault(condition: float, dt_hours: float, rng_value: float,
@@ -391,3 +382,4 @@ def check_fault(condition: float, dt_hours: float, rng_value: float,
     fault_rate = base_fault_rate / (condition ** 2)
     prob = 1.0 - math.exp(-fault_rate * dt_hours)  # Poisson probability
     return rng_value < prob
+

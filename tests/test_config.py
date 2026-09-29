@@ -29,18 +29,17 @@ def test_load_station_maitri():
     assert "renewables" in cfg  # Maitri has wind turbine
 
 
-def test_station_validation_fails_on_missing_keys():
+def test_station_validation_fails_on_missing_keys(tmp_path):
     """A config missing required keys should raise ValueError."""
     with pytest.raises(ValueError, match="missing required keys"):
         load_station.__wrapped__ if hasattr(load_station, '__wrapped__') else None
         # Create a temp file with bad config
-        import tempfile, yaml
+        import yaml
         bad = {"name": "Bad"}  # missing crew, weather, zones, etc.
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False,
-                                          dir=str(BASE)) as f:
+        f_path = tmp_path / "bad_station.yaml"
+        with open(f_path, "w") as f:
             yaml.dump(bad, f)
-            f.flush()
-            load_station(f.name)
+        load_station(str(f_path))
 
 
 def test_param_value_extracts_number():
