@@ -19,7 +19,6 @@ streamlit run app.py
 python -m pytest tests/ -v
 ```
 
-The dashboard opens at **http://localhost:8501**.
 
 ---
 
