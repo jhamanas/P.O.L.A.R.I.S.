@@ -5,7 +5,7 @@ import pytest
 from antarctic_twin.config import load_params, load_station, param_value
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def test_load_params():

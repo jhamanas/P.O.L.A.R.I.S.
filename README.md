@@ -118,6 +118,16 @@ tests/test_phase5.py      15 tests   RBAC permissions, audit log CRUD, DataSourc
 - **Wind:** Cubic power curve with cut-in (3 m/s), rated (12 m/s), cut-out (25 m/s)
 - **Condition:** Linear degradation: `max(0, 1 - hours / (2 × MTBF))`
 - **Faults:** Poisson process with rate increasing as condition degrades
+- **Crew:** Auto-switches between summer (23) and winter (15) crew based on day-of-year
+
+### Forecast Convention
+
+We use **reserves-estimation convention** for percentiles:
+- **P10** = optimistic (90th percentile of exhaustion day) — fuel lasts *longer*
+- **P50** = median
+- **P90** = pessimistic (10th percentile of exhaustion day) — fuel runs out *earlier*
+
+`margin_days = P50_exhaustion − resupply_day`. Positive = safe, negative = runs out before resupply.
 
 ---
 

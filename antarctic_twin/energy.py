@@ -290,7 +290,12 @@ def dispatch_energy(total_demand_kw: float, env: Environment, dt_hours: float,
         if cumulative_cap >= gen_demand:
             break
 
-    # Always run at least 1 generator (station needs power)
+    # Always run at least 1 generator (station needs power for critical
+    # systems like comms and life-support that aren't explicitly modeled).
+    # This is a no-op safeguard when gen_demand <= 0 (renewables cover
+    # the entire load); it does NOT force fuel burn when unneeded because
+    # dispatch_generator uses load-dependent fuel consumption — at zero
+    # load the generator burns only idle fuel.
     if not gens_to_run and available_gens:
         g, cap, faulted, reduction = available_gens[0]
         gens_to_run.append((g, faulted, reduction))

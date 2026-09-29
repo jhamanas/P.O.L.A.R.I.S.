@@ -7,7 +7,7 @@ from antarctic_twin.state import initialize_state, step
 from antarctic_twin.weather import WeatherGenerator
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def _setup():

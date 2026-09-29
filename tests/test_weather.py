@@ -5,7 +5,7 @@ from antarctic_twin.config import load_params, load_station
 from antarctic_twin.weather import WeatherGenerator
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def _make_weather(seed: int = 42) -> WeatherGenerator:

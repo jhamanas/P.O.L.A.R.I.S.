@@ -5,7 +5,7 @@ from antarctic_twin.engine import SimulationEngine
 from antarctic_twin.config import load_station, load_params
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def _run(station: str, seed: int, days: int = 30):

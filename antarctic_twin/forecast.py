@@ -106,7 +106,20 @@ def run_forecast(
         resupply_day = float(resupply_cfg.get("nominal_day",
                              param_value(params, "resupply_default_day")))
 
-    start_day = (state.time_hours / 24.0) % 365.25
+    # --- Convert everything to cumulative days from day 0 of the sim year ---
+    # state.time_hours is cumulative hours since sim start (day 0 = Jan 1).
+    # start_cum is the cumulative day the forecast begins.
+    start_cum = state.time_hours / 24.0
+
+    # resupply_day is a day-of-year (e.g. 350).  Convert to cumulative day
+    # that is the *first occurrence on or after* start_cum.
+    # This handles the case where we start forecasting at day 200 and resupply
+    # is day 350 (same year) as well as starting at day 300 with resupply
+    # at day 30 (next year = cumulative day 395).
+    resupply_cum = resupply_day
+    while resupply_cum < start_cum:
+        resupply_cum += 365.0
+
     steps_per_day = int(24.0 / dt_hours)
     total_steps = horizon_days * steps_per_day
 
@@ -146,6 +159,7 @@ def run_forecast(
         exhausted = {sid: False for sid in all_consumable_ids}
 
         for step_idx in range(total_steps):
+            # day_of_year for weather (must be mod-365 for seasonal patterns)
             day_of_year = (sim_state.time_hours / 24.0) % 365.25
             env = weather.get_weather(day_of_year, dt_hours)
 
@@ -156,13 +170,12 @@ def run_forecast(
             sim_state = step(sim_state, env, dt_hours, graph, params,
                            fault_rng_values=fault_rng_values)
 
-            # Check for exhaustion
-            current_day = sim_state.time_hours / 24.0
-            day_index = int((current_day - state.time_hours / 24.0))
+            # Check for exhaustion — use cumulative day, NOT mod-365
+            current_cum_day = sim_state.time_hours / 24.0
 
             for sid in all_consumable_ids:
                 if not exhausted[sid] and sim_state.storage[sid].level <= 0:
-                    exhaustion_days[sid][run_idx] = current_day % 365.25
+                    exhaustion_days[sid][run_idx] = current_cum_day
                     exhausted[sid] = True
 
             # Store trajectory (daily sample)
@@ -185,9 +198,9 @@ def run_forecast(
             p90 = float(np.percentile(valid, 10))  # P90 = pessimistic = earlier exhaustion
         else:
             # Doesn't exhaust within horizon
-            p10 = start_day + horizon_days
-            p50 = start_day + horizon_days
-            p90 = start_day + horizon_days
+            p10 = start_cum + horizon_days
+            p50 = start_cum + horizon_days
+            p90 = start_cum + horizon_days
 
         # Determine commodity and units
         commodity = "fuel" if sid in fuel_ids else "water" if sid in water_ids else "food"
@@ -204,6 +217,7 @@ def run_forecast(
         else:
             depletion_rate = 0.0
 
+        # Margins are computed against cumulative resupply day
         consumable_forecasts[sid] = ConsumableForecast(
             asset_id=sid,
             commodity=commodity,
@@ -213,10 +227,10 @@ def run_forecast(
             p10_days=p10,
             p50_days=p50,
             p90_days=p90,
-            resupply_day=resupply_day,
-            margin_p10=p10 - resupply_day,
-            margin_p50=p50 - resupply_day,
-            margin_p90=p90 - resupply_day,
+            resupply_day=resupply_cum,
+            margin_p10=p10 - resupply_cum,
+            margin_p50=p50 - resupply_cum,
+            margin_p90=p90 - resupply_cum,
             depletion_rate_per_day=depletion_rate,
         )
 
@@ -235,9 +249,10 @@ def run_forecast(
     return ForecastResult(
         n_runs=n_runs,
         forecast_horizon_days=horizon_days,
-        start_day=start_day,
+        start_day=start_cum,
         consumables=consumable_forecasts,
         fuel_trajectories=fuel_traj,
         water_trajectories=water_traj,
         food_trajectories=food_traj,
     )
+

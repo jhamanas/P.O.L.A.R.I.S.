@@ -10,7 +10,7 @@ from antarctic_twin.interfaces import YamlDataSource
 from antarctic_twin.config import load_params
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 # ================================================================

@@ -4,7 +4,7 @@ from antarctic_twin.config import load_station, load_params
 from pathlib import Path
 import time
 
-BASE = Path("d:/PS2")
+BASE = Path(__file__).resolve().parent
 
 print("=" * 70)
 print("PHASE 1 — FULL SYSTEM CALIBRATION")

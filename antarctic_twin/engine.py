@@ -72,14 +72,16 @@ class SimulationEngine:
         crew = station_config["crew"]["winter"]
         self.initial_state = initialize_state(self.graph, crew)
 
-    def run(self, days: int = 365, dt_hours: float = 1.0,
-            crew_schedule: dict[str, int] | None = None) -> SimulationResult:
+    def run(self, days: int = 365, dt_hours: float = 1.0) -> SimulationResult:
         """Run the simulation for a given number of days.
+
+        Crew count automatically switches between summer and winter
+        based on day-of-year: summer crew during days [0,60) and [320,365)
+        (Antarctic summer / resupply season), winter crew otherwise.
 
         Args:
             days: Number of days to simulate.
             dt_hours: Timestep in hours.
-            crew_schedule: Optional dict mapping day ranges to crew counts.
 
         Returns:
             SimulationResult with full state and weather history.
@@ -91,18 +93,20 @@ class SimulationEngine:
         gen_ids = [g.id for g in self.graph.get_by_type(AssetType.GENERATOR)]
         total_steps = int(days * 24 / dt_hours)
 
+        # Crew switching: read summer/winter counts from config
+        crew_cfg = self.station_config["crew"]
+        summer_crew = crew_cfg.get("summer", crew_cfg["winter"])
+        winter_crew = crew_cfg["winter"]
+
         for i in range(total_steps):
             day_of_year = (state.time_hours / 24.0) % 365.25
 
-            # Update crew count based on schedule
-            if crew_schedule:
-                current_day = state.time_hours / 24.0
-                for range_str, count in crew_schedule.items():
-                    start, end = map(float, range_str.split("-"))
-                    if start <= (current_day % 365) < end:
-                        state = state.copy()
-                        state.crew_count = count
-                        break
+            # Auto crew switch: Antarctic summer = Nov-Feb (days 0-60, 320-365)
+            is_summer = day_of_year < 60 or day_of_year >= 320
+            target_crew = summer_crew if is_summer else winter_crew
+            if state.crew_count != target_crew:
+                state = state.copy()
+                state.crew_count = target_crew
 
             # Generate weather
             env = self.weather.get_weather(day_of_year, dt_hours)

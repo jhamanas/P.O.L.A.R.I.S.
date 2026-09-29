@@ -14,7 +14,7 @@ from antarctic_twin.energy import (
 from antarctic_twin.engine import SimulationEngine
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def _setup(station="bharati"):

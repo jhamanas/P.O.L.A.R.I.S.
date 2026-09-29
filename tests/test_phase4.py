@@ -10,7 +10,7 @@ from antarctic_twin.config import load_station, load_params
 from antarctic_twin.alerts import AlertSeverity
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 STATION = BASE / "stations" / "bharati.yaml"
 PARAMS = BASE / "params.yaml"
 

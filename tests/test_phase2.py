@@ -12,7 +12,7 @@ from antarctic_twin.state import initialize_state
 from antarctic_twin.types import AssetType
 
 
-BASE = Path("d:/PS2")
+from tests.conftest import REPO_ROOT as BASE
 
 
 def _setup(station="bharati", seed=42, days=200):
