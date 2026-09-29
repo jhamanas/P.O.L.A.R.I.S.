@@ -1,38 +1,39 @@
-"""AntarCtiC Station Digital Twin — Streamlit Dashboard (Phase 3).
+"""Antarctic Station Digital Twin â€” Streamlit Dashboard (Phase 3).
 
 Run with:  streamlit run app.py
 
 Features:
   - Overview with margin days, alert feed, and SIMULATED TELEMETRY badge
-  - Sidebar sCenario Controls (temp offset, wind, Crew, resupply delay, faults)
-  - ForeCast fan Chart with resupply line
+  - Sidebar scenario controls (temp offset, wind, crew, resupply delay, faults)
+  - Forecast fan chart with resupply line
   - Energy-flow view (generation mix, battery SOC)
-  - SVG station plan with zones Coloured by status
+  - SVG station plan with zones coloured by status
 """
 
 import streamlit as st
 import numpy as np
-import plotly.graph_objeCts as go
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
-from antarCtiC_twin.engine import SimulationEngine
-from antarCtiC_twin.Config import load_station, load_params, param_value
-from antarCtiC_twin.asset_graph import AssetGraph
-from antarCtiC_twin.foreCast import run_foreCast
-from antarCtiC_twin.alerts import derive_alerts, AlertSeverity, AlertCategory
-from antarCtiC_twin.types import AssetType
-from antarCtiC_twin.sCenarios import (
-    PRESETS, run_sCenario, run_sensitivity, run_baCktest, SCenario, fork_sCenario
+from antarctic_twin.engine import SimulationEngine
+from antarctic_twin.config import load_station, load_params, param_value
+from antarctic_twin.asset_graph import AssetGraph
+from antarctic_twin.forecast import run_forecast
+from antarctic_twin.alerts import derive_alerts, AlertSeverity, AlertCategory
+from antarctic_twin.types import AssetType
+from antarctic_twin.scenarios import (
+    PRESETS, run_scenario, run_sensitivity, run_backtest,
+    Scenario, fork_scenario,
 )
-from antarCtiC_twin.database import AuditLogger, Role, User, CheCk_permission, get_provenanCe
-from antarCtiC_twin.interfaCes import YamlDataSourCe
+from antarctic_twin.database import AuditLogger, Role, User, check_permission, get_provenance
+from antarctic_twin.interfaces import YamlDataSource
 
 # ---------------------------------------------------------------------------
-# Page Config
+# Page config
 # ---------------------------------------------------------------------------
-st.set_page_Config(
-    page_title="AntarCtiC Station Digital Twin",
-    page_iCon="logo.png",
+st.set_page_config(
+    page_title="Antarctic Station Digital Twin",
+    page_icon="logo.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -40,11 +41,11 @@ st.set_page_Config(
 BASE = Path(__file__).parent
 
 # Phase 5 initialization
-data_sourCe = YamlDataSourCe(BASE)
+data_source = YamlDataSource(BASE)
 audit_logger = AuditLogger(BASE / "audit.db")
 
 # ---------------------------------------------------------------------------
-# AuthentiCation & Role Simulation
+# Authentication & Role Simulation
 # ---------------------------------------------------------------------------
 if "user" not in st.session_state:
     st.session_state.user = User(username="admin", role=Role.ADMIN)
@@ -53,23 +54,23 @@ with st.sidebar:
     st.image("logo.png", width=60)
     st.title("User Session")
     
-    # Role switCher for demonstration
-    user_role = st.seleCtbox(
+    # Role switcher for demonstration
+    user_role = st.selectbox(
         "Current Role (Simulated)", 
         [Role.ADMIN, Role.OPERATOR, Role.SCIENTIST, Role.GUEST],
         index=0
     )
     if user_role != st.session_state.user.role:
         st.session_state.user = User(username=user_role.value.lower(), role=user_role)
-        audit_logger.log_aCtion(st.session_state.user, "Login", f"SwitChed role to {user_role.value}")
+        audit_logger.log_action(st.session_state.user, "Login", f"Switched role to {user_role.value}")
         st.rerun()
 
     st.divider()
-    st.title("SCenario Controls")
-    st.Caption("Adjust parameters to explore what-if sCenarios")
+    st.title("Scenario Controls")
+    st.caption("Adjust parameters to explore what-if scenarios")
 
-    station_name = st.seleCtbox(
-        "Station", data_sourCe.list_stations(), format_funC=str.title
+    station_name = st.selectbox(
+        "Station", data_source.list_stations(), format_func=str.title
     )
 
     st.divider()
@@ -80,14 +81,14 @@ with st.sidebar:
     )
     wind_mult = st.slider(
         "Wind multiplier", 0.5, 2.0, 1.0, 0.1,
-        help="SCale wind speeds (1.0 = normal)"
+        help="Scale wind speeds (1.0 = normal)"
     )
 
     st.divider()
     st.subheader("Operations")
-    Crew_delta = st.slider(
-        "Crew Change", -10, 10, 0, 1,
-        help="Add or remove Crew from the winter Complement"
+    crew_delta = st.slider(
+        "Crew change", -10, 10, 0, 1,
+        help="Add or remove crew from the winter complement"
     )
     resupply_delay = st.slider(
         "Resupply delay (days)", 0, 90, 0, 5,
@@ -96,94 +97,94 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Faults")
-    gen_fault = st.seleCtbox(
-        "InjeCt generator fault",
+    gen_fault = st.selectbox(
+        "Inject generator fault",
         ["None", "Generator 1", "Generator 2", "Generator 3"],
-        help="ForCe a fault on a speCifiC generator at day 0"
+        help="Force a fault on a specific generator at day 0"
     )
 
     st.divider()
     sim_days = st.slider("Simulation days", 30, 365, 365, 5)
-    foreCast_runs = st.slider("ForeCast MC runs", 20, 500, 100, 10,
-                              help="More runs = smoother fan Chart, slower")
+    forecast_runs = st.slider("Forecast MC runs", 20, 500, 100, 10,
+                              help="More runs = smoother fan chart, slower")
 
     run_btn = st.button(
         "Run Simulation",
         type="primary",
-        use_Container_width=True,
-        disabled=not CheCk_permission(st.session_state.user, "run_simulation"),
+        use_container_width=True,
+        disabled=not check_permission(st.session_state.user, "run_simulation"),
     )
-    if not CheCk_permission(st.session_state.user, "run_simulation"):
-        st.Caption("Your role does not have permission to run simulations.")
+    if not check_permission(st.session_state.user, "run_simulation"):
+        st.caption("Your role does not have permission to run simulations.")
 
 # ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
-Col_title, Col_badge = st.Columns([5, 1])
-with Col_title:
-    st.title("AntarCtiC Station Digital Twin")
-with Col_badge:
+col_title, col_badge = st.columns([5, 1])
+with col_title:
+    st.title("Antarctic Station Digital Twin")
+with col_badge:
     st.markdown(
-        '<div style="baCkground:#FF6B35;Color:white;padding:8px 12px;'
-        'border-radius:4px;text-align:Center;margin-top:16px;font-weight:bold;'
+        '<div style="background:#FF6B35;color:white;padding:8px 12px;'
+        'border-radius:4px;text-align:center;margin-top:16px;font-weight:bold;'
         'font-size:0.8em;">'
         'SIMULATED TELEMETRY</div>',
         unsafe_allow_html=True,
     )
 
-st.Caption("SIH26060 — Digital Platform for Remote Management of Indian AntarCtiC ResearCh Stations")
+st.caption("SIH26060 â€” Digital Platform for Remote Management of Indian Antarctic Research Stations")
 
 
 # ---------------------------------------------------------------------------
 # Run simulation
 # ---------------------------------------------------------------------------
 if not run_btn and "result" not in st.session_state:
-    st.info("Configure sCenario in the sidebar and CliCk **Run Simulation** to begin.")
+    st.info("Configure scenario in the sidebar and click **Run Simulation** to begin.")
     st.stop()
 
 if run_btn:
-    audit_logger.log_aCtion(
+    audit_logger.log_action(
         st.session_state.user, 
         "Run Simulation", 
         f"Station: {station_name}, Temp Offset: {temp_offset}, Wind Mult: {wind_mult}"
     )
     
-    station_Config = data_sourCe.get_station_Config(station_name)
-    params = data_sourCe.get_global_params()
+    station_config = data_source.get_station_config(station_name)
+    params = data_source.get_global_params()
 
-    # Apply sCenario overrides
-    Custom_sCenario = SCenario(
+    # Apply scenario overrides via fork_scenario (deep copy, no mutation)
+    custom_scenario = Scenario(
         name="Custom UI Overlay",
         temp_offset=temp_offset,
         wind_mult=wind_mult,
-        Crew_delta=Crew_delta,
+        crew_delta=crew_delta,
         resupply_delay_days=resupply_delay,
     )
-    modified_Config = fork_sCenario(station_Config, params, Custom_sCenario)
+    modified_config = fork_scenario(station_config, params, custom_scenario)
 
-    engine = SimulationEngine(modified_Config, params, seed=42)
+    engine = SimulationEngine(modified_config, params, seed=42)
 
-    # InjeCt generator fault if requested
+    # Inject generator fault if requested
     if gen_fault != "None":
         gen_num = int(gen_fault.split()[-1])
         gen_id = f"{station_name}.gen{gen_num}"
         if gen_id in engine.initial_state.generators:
             engine.initial_state.generators[gen_id].faulted = True
-            engine.initial_state.generators[gen_id].fault_CapaCity_reduCtion = 0.5
+            engine.initial_state.generators[gen_id].fault_capacity_reduction = 0.5
 
     with st.spinner("Running simulation..."):
         result = engine.run(days=sim_days)
 
-    # Run foreCast from midpoint
-    graph = AssetGraph(modified_Config)
+    # Run forecast from midpoint
+    graph = AssetGraph(modified_config)
     mid_day = min(sim_days // 2, 150)
     mid_state = result.history[mid_day * 24]
     resupply_day = param_value(params, "resupply_default_day")
 
-    with st.spinner("Running Monte Carlo foreCast..."):
-        foreCast = run_foreCast(
-            mid_state, graph, modified_Config, params,
-            n_runs=foreCast_runs,
+    with st.spinner("Running Monte Carlo forecast..."):
+        forecast = run_forecast(
+            mid_state, graph, modified_config, params,
+            n_runs=forecast_runs,
             horizon_days=min(sim_days - mid_day, 250),
             dt_hours=6.0,
             resupply_day=resupply_day + resupply_delay,
@@ -192,24 +193,24 @@ if run_btn:
     # Derive alerts
     alerts = derive_alerts(
         result.final_state, graph, params,
-        foreCast=foreCast,
+        forecast=forecast,
         resupply_day=resupply_day,
         resupply_delay_days=resupply_delay,
     )
 
     # Store in session
     st.session_state.result = result
-    st.session_state.foreCast = foreCast
+    st.session_state.forecast = forecast
     st.session_state.alerts = alerts
     st.session_state.graph = graph
     st.session_state.params = params
-    st.session_state.station_Config = modified_Config
+    st.session_state.station_config = modified_config
     st.session_state.resupply_day = resupply_day + resupply_delay
     st.session_state.mid_day = mid_day
 
 # Retrieve from session
 result = st.session_state.result
-foreCast = st.session_state.foreCast
+forecast = st.session_state.forecast
 alerts = st.session_state.alerts
 graph = st.session_state.graph
 params = st.session_state.params
@@ -221,8 +222,8 @@ final = result.final_state
 # ---------------------------------------------------------------------------
 # Tab layout
 # ---------------------------------------------------------------------------
-tab_overview, tab_foreCast, tab_energy, tab_station, tab_alerts, tab_sCenarios, tab_validation, tab_provenanCe = st.tabs(
-    ["Overview", "ForeCast", "Energy", "Station Plan", "Alerts", "SCenarios", "Validation", "ProvenanCe & Audit"]
+tab_overview, tab_forecast, tab_energy, tab_station, tab_alerts, tab_scenarios, tab_validation, tab_provenance = st.tabs(
+    ["Overview", "Forecast", "Energy", "Station Plan", "Alerts", "Scenarios", "Validation", "Provenance & Audit"]
 )
 
 
@@ -231,204 +232,204 @@ with tab_overview:
     st.subheader("Station Status")
 
     # Margin days
-    fuel_fC = next((f for f in foreCast.Consumables.values() if f.Commodity == "fuel"), None)
-    water_fC = next((f for f in foreCast.Consumables.values() if f.Commodity == "water"), None)
-    food_fC = next((f for f in foreCast.Consumables.values() if f.Commodity == "food"), None)
+    fuel_fc = next((f for f in forecast.consumables.values() if f.commodity == "fuel"), None)
+    water_fc = next((f for f in forecast.consumables.values() if f.commodity == "water"), None)
+    food_fc = next((f for f in forecast.consumables.values() if f.commodity == "food"), None)
 
-    C1, C2, C3, C4, C5 = st.Columns(5)
-    with C1:
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
         fuel_ids = [sid for sid in final.storage if "fuel" in sid]
         fuel_level = final.storage[fuel_ids[0]].level if fuel_ids else 0
-        st.metriC("Fuel", f"{fuel_level:,.0f} L",
-                  delta=f"Margin: {fuel_fC.margin_p50:+.0f}d" if fuel_fC else None,
-                  delta_Color="normal" if fuel_fC and fuel_fC.margin_p50 > 0 else "inverse")
-    with C2:
+        st.metric("Fuel", f"{fuel_level:,.0f} L",
+                  delta=f"Margin: {fuel_fc.margin_p50:+.0f}d" if fuel_fc else None,
+                  delta_color="normal" if fuel_fc and fuel_fc.margin_p50 > 0 else "inverse")
+    with c2:
         water_ids = [sid for sid in final.storage if "water" in sid]
         water_level = final.storage[water_ids[0]].level if water_ids else 0
-        st.metriC("Water", f"{water_level:,.0f} L")
-    with C3:
+        st.metric("Water", f"{water_level:,.0f} L")
+    with c3:
         food_ids = [sid for sid in final.storage if "food" in sid]
         food_level = final.storage[food_ids[0]].level if food_ids else 0
-        st.metriC("Food", f"{food_level:,.0f} kg")
-    with C4:
+        st.metric("Food", f"{food_level:,.0f} kg")
+    with c4:
         avg_temp = sum(z.temperature for z in final.zones.values()) / max(1, len(final.zones))
-        st.metriC("Avg Zone Temp", f"{avg_temp:.1f} C")
-    with C5:
+        st.metric("Avg Zone Temp", f"{avg_temp:.1f} C")
+    with c5:
         n_faulted = sum(1 for g in final.generators.values() if g.faulted)
-        st.metriC("Gen Faults", f"{n_faulted}",
+        st.metric("Gen Faults", f"{n_faulted}",
                   delta="FAULT" if n_faulted > 0 else "OK",
-                  delta_Color="inverse" if n_faulted > 0 else "normal")
+                  delta_color="inverse" if n_faulted > 0 else "normal")
 
-    # Consumable Charts
+    # Consumable charts
     st.subheader("Consumable Levels")
     days = [s.time_hours / 24.0 for s in result.history]
 
-    fig_Cons = make_subplots(rows=1, Cols=3,
+    fig_cons = make_subplots(rows=1, cols=3,
                              subplot_titles=["Fuel (L)", "Water (L)", "Food (kg)"])
 
     if fuel_ids:
-        fig_Cons.add_traCe(
-            go.SCatter(x=days,
+        fig_cons.add_trace(
+            go.Scatter(x=days,
                        y=[s.storage[fuel_ids[0]].level for s in result.history],
-                       name="Fuel", line=diCt(Color="#EF553B", width=2)),
-            row=1, Col=1)
+                       name="Fuel", line=dict(color="#EF553B", width=2)),
+            row=1, col=1)
     if water_ids:
-        fig_Cons.add_traCe(
-            go.SCatter(x=days,
+        fig_cons.add_trace(
+            go.Scatter(x=days,
                        y=[s.storage[water_ids[0]].level for s in result.history],
-                       name="Water", line=diCt(Color="#636EFA", width=2)),
-            row=1, Col=2)
+                       name="Water", line=dict(color="#636EFA", width=2)),
+            row=1, col=2)
     if food_ids:
-        fig_Cons.add_traCe(
-            go.SCatter(x=days,
+        fig_cons.add_trace(
+            go.Scatter(x=days,
                        y=[s.storage[food_ids[0]].level for s in result.history],
-                       name="Food", line=diCt(Color="#00CC96", width=2)),
-            row=1, Col=3)
+                       name="Food", line=dict(color="#00CC96", width=2)),
+            row=1, col=3)
 
-    fig_Cons.update_layout(height=300, showlegend=False,
-                           margin=diCt(l=40, r=20, t=40, b=30))
+    fig_cons.update_layout(height=300, showlegend=False,
+                           margin=dict(l=40, r=20, t=40, b=30))
     for i in range(1, 4):
-        fig_Cons.update_xaxes(title_text="Day", row=1, Col=i)
-    st.plotly_Chart(fig_Cons, use_Container_width=True)
+        fig_cons.update_xaxes(title_text="Day", row=1, col=i)
+    st.plotly_chart(fig_cons, use_container_width=True)
 
     # Zone temperatures
     st.subheader("Zone Temperatures")
     fig_temp = go.Figure()
-    Colors = ["#EF553B", "#636EFA", "#00CC96", "#AB63FA", "#FFA15A"]
+    colors = ["#EF553B", "#636EFA", "#00CC96", "#AB63FA", "#FFA15A"]
     for idx, zid in enumerate(result.history[0].zones):
         label = zid.split(".")[-1].title()
-        fig_temp.add_traCe(go.SCatter(
+        fig_temp.add_trace(go.Scatter(
             x=days,
             y=[s.zones[zid].temperature for s in result.history],
-            name=label, line=diCt(Color=Colors[idx % len(Colors)], width=2),
+            name=label, line=dict(color=colors[idx % len(colors)], width=2),
         ))
     fig_temp.update_layout(height=300, yaxis_title="Temperature (C)",
                            xaxis_title="Day",
-                           margin=diCt(l=40, r=20, t=20, b=30))
-    st.plotly_Chart(fig_temp, use_Container_width=True)
+                           margin=dict(l=40, r=20, t=20, b=30))
+    st.plotly_chart(fig_temp, use_container_width=True)
 
     # Alert summary
     st.subheader("Alert Summary")
     n_red = sum(1 for a in alerts if a.severity == AlertSeverity.RED)
     n_amber = sum(1 for a in alerts if a.severity == AlertSeverity.AMBER)
-    aC1, aC2, aC3 = st.Columns(3)
-    with aC1:
-        st.metriC("RED Alerts", n_red)
-    with aC2:
-        st.metriC("AMBER Alerts", n_amber)
-    with aC3:
-        st.metriC("Total Alerts", len(alerts))
+    ac1, ac2, ac3 = st.columns(3)
+    with ac1:
+        st.metric("RED Alerts", n_red)
+    with ac2:
+        st.metric("AMBER Alerts", n_amber)
+    with ac3:
+        st.metric("Total Alerts", len(alerts))
 
     if alerts:
         for alert in alerts[:5]:
-            severity_Color = "#FF4444" if alert.severity == AlertSeverity.RED else "#FFB020"
+            severity_color = "#FF4444" if alert.severity == AlertSeverity.RED else "#FFB020"
             st.markdown(
-                f'<div style="border-left:4px solid {severity_Color};padding:8px 12px;'
-                f'margin:4px 0;baCkground:#1a1a2e;border-radius:0 4px 4px 0;">'
-                f'<b style="Color:{severity_Color}">[{alert.severity.value}]</b> '
-                f'{alert.Cause}</div>',
+                f'<div style="border-left:4px solid {severity_color};padding:8px 12px;'
+                f'margin:4px 0;background:#1a1a2e;border-radius:0 4px 4px 0;">'
+                f'<b style="color:{severity_color}">[{alert.severity.value}]</b> '
+                f'{alert.cause}</div>',
                 unsafe_allow_html=True,
             )
         if len(alerts) > 5:
-            st.Caption(f"...and {len(alerts)-5} more. See Alerts tab for details.")
+            st.caption(f"...and {len(alerts)-5} more. See Alerts tab for details.")
 
 
 # ===== TAB 2: FORECAST FAN CHART =====
-with tab_foreCast:
-    st.subheader("Monte Carlo ForeCast")
-    st.Caption(f"ForeCast from day {mid_day} | {foreCast.n_runs} Monte Carlo runs | "
+with tab_forecast:
+    st.subheader("Monte Carlo Forecast")
+    st.caption(f"Forecast from day {mid_day} | {forecast.n_runs} Monte Carlo runs | "
                f"Resupply target: day {resupply_day_eff:.0f}")
 
-    if foreCast.fuel_trajeCtories is not None and foreCast.fuel_trajeCtories.shape[1] > 0:
-        n_days = foreCast.fuel_trajeCtories.shape[1]
-        foreCast_days = np.arange(mid_day, mid_day + n_days)
+    if forecast.fuel_trajectories is not None and forecast.fuel_trajectories.shape[1] > 0:
+        n_days = forecast.fuel_trajectories.shape[1]
+        forecast_days = np.arange(mid_day, mid_day + n_days)
 
         fig_fan = go.Figure()
 
         # P10-P90 band
-        p10 = np.perCentile(foreCast.fuel_trajeCtories, 90, axis=0)
-        p25 = np.perCentile(foreCast.fuel_trajeCtories, 75, axis=0)
-        p50 = np.perCentile(foreCast.fuel_trajeCtories, 50, axis=0)
-        p75 = np.perCentile(foreCast.fuel_trajeCtories, 25, axis=0)
-        p90 = np.perCentile(foreCast.fuel_trajeCtories, 10, axis=0)
+        p10 = np.percentile(forecast.fuel_trajectories, 90, axis=0)
+        p25 = np.percentile(forecast.fuel_trajectories, 75, axis=0)
+        p50 = np.percentile(forecast.fuel_trajectories, 50, axis=0)
+        p75 = np.percentile(forecast.fuel_trajectories, 25, axis=0)
+        p90 = np.percentile(forecast.fuel_trajectories, 10, axis=0)
 
         # P10-P90 band (light)
-        fig_fan.add_traCe(go.SCatter(
-            x=np.ConCatenate([foreCast_days, foreCast_days[::-1]]),
-            y=np.ConCatenate([p10, p90[::-1]]),
-            fill="toself", fillColor="rgba(99,110,250,0.15)",
-            line=diCt(Color="rgba(0,0,0,0)"),
+        fig_fan.add_trace(go.Scatter(
+            x=np.concatenate([forecast_days, forecast_days[::-1]]),
+            y=np.concatenate([p10, p90[::-1]]),
+            fill="toself", fillcolor="rgba(99,110,250,0.15)",
+            line=dict(color="rgba(0,0,0,0)"),
             name="P10-P90 range", showlegend=True,
         ))
 
         # P25-P75 band (darker)
-        fig_fan.add_traCe(go.SCatter(
-            x=np.ConCatenate([foreCast_days, foreCast_days[::-1]]),
-            y=np.ConCatenate([p25, p75[::-1]]),
-            fill="toself", fillColor="rgba(99,110,250,0.3)",
-            line=diCt(Color="rgba(0,0,0,0)"),
+        fig_fan.add_trace(go.Scatter(
+            x=np.concatenate([forecast_days, forecast_days[::-1]]),
+            y=np.concatenate([p25, p75[::-1]]),
+            fill="toself", fillcolor="rgba(99,110,250,0.3)",
+            line=dict(color="rgba(0,0,0,0)"),
             name="P25-P75 range", showlegend=True,
         ))
 
         # P50 line
-        fig_fan.add_traCe(go.SCatter(
-            x=foreCast_days, y=p50,
-            line=diCt(Color="#636EFA", width=3),
+        fig_fan.add_trace(go.Scatter(
+            x=forecast_days, y=p50,
+            line=dict(color="#636EFA", width=3),
             name="P50 (median)",
         ))
 
         # Resupply line
         fig_fan.add_vline(x=resupply_day_eff, line_dash="dash",
-                          line_Color="#00CC96", annotation_text="Resupply",
+                          line_color="#00CC96", annotation_text="Resupply",
                           annotation_position="top right")
 
         # Zero line
-        fig_fan.add_hline(y=0, line_dash="dot", line_Color="#EF553B",
+        fig_fan.add_hline(y=0, line_dash="dot", line_color="#EF553B",
                           annotation_text="Exhaustion")
 
         fig_fan.update_layout(
-            height=450, title="Fuel Level ForeCast (Fan Chart)",
+            height=450, title="Fuel Level Forecast (Fan Chart)",
             xaxis_title="Day of Year", yaxis_title="Fuel (L)",
-            margin=diCt(l=50, r=20, t=60, b=40),
+            margin=dict(l=50, r=20, t=60, b=40),
         )
-        st.plotly_Chart(fig_fan, use_Container_width=True)
+        st.plotly_chart(fig_fan, use_container_width=True)
 
         # Margin days display
-        if fuel_fC:
-            mC1, mC2, mC3, mC4 = st.Columns(4)
-            with mC1:
-                Color = "normal" if fuel_fC.margin_p50 > 0 else "inverse"
-                st.metriC("P50 Margin", f"{fuel_fC.margin_p50:+.0f} days",
-                          delta_Color=Color)
-            with mC2:
-                st.metriC("P90 Margin (worst)", f"{fuel_fC.margin_p90:+.0f} days")
-            with mC3:
-                st.metriC("P10 Margin (best)", f"{fuel_fC.margin_p10:+.0f} days")
-            with mC4:
-                st.metriC("Runs exhausting", f"{fuel_fC.fraCtion_exhausting_before_resupply*100:.0f}%")
+        if fuel_fc:
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            with mc1:
+                color = "normal" if fuel_fc.margin_p50 > 0 else "inverse"
+                st.metric("P50 Margin", f"{fuel_fc.margin_p50:+.0f} days",
+                          delta_color=color)
+            with mc2:
+                st.metric("P90 Margin (worst)", f"{fuel_fc.margin_p90:+.0f} days")
+            with mc3:
+                st.metric("P10 Margin (best)", f"{fuel_fc.margin_p10:+.0f} days")
+            with mc4:
+                st.metric("Runs exhausting", f"{fuel_fc.fraction_exhausting_before_resupply*100:.0f}%")
 
     else:
-        st.warning("No fuel trajeCtory data available.")
+        st.warning("No fuel trajectory data available.")
 
-    # Water and food foreCasts (CompaCt)
+    # Water and food forecasts (compact)
     st.divider()
-    wC1, wC2 = st.Columns(2)
+    wc1, wc2 = st.columns(2)
 
-    with wC1:
-        st.markdown("**Water ForeCast**")
-        if water_fC:
-            st.write(f"P50 margin: **{water_fC.margin_p50:+.0f} days**")
-            st.write(f"Exhaustion risk: **{water_fC.fraCtion_exhausting_before_resupply*100:.0f}%**")
+    with wc1:
+        st.markdown("**Water Forecast**")
+        if water_fc:
+            st.write(f"P50 margin: **{water_fc.margin_p50:+.0f} days**")
+            st.write(f"Exhaustion risk: **{water_fc.fraction_exhausting_before_resupply*100:.0f}%**")
         else:
-            st.write("No water foreCast.")
+            st.write("No water forecast.")
 
-    with wC2:
-        st.markdown("**Food ForeCast**")
-        if food_fC:
-            st.write(f"P50 margin: **{food_fC.margin_p50:+.0f} days**")
-            st.write(f"Exhaustion risk: **{food_fC.fraCtion_exhausting_before_resupply*100:.0f}%**")
+    with wc2:
+        st.markdown("**Food Forecast**")
+        if food_fc:
+            st.write(f"P50 margin: **{food_fc.margin_p50:+.0f} days**")
+            st.write(f"Exhaustion risk: **{food_fc.fraction_exhausting_before_resupply*100:.0f}%**")
         else:
-            st.write("No food foreCast.")
+            st.write("No food forecast.")
 
 
 # ===== TAB 3: ENERGY FLOW =====
@@ -437,51 +438,51 @@ with tab_energy:
 
     # Generation mix over time
     fig_energy = make_subplots(
-        rows=3, Cols=1, shared_xaxes=True, vertiCal_spaCing=0.08,
+        rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.08,
         subplot_titles=["Generation Mix (kW)", "Battery SOC (kWh)", "Heating Demand vs Supply (kW)"]
     )
 
     # Generator power
-    fig_energy.add_traCe(go.SCatter(
+    fig_energy.add_trace(go.Scatter(
         x=days, y=[s.total_generation_kw for s in result.history],
         name="Generators", fill="tozeroy",
-        fillColor="rgba(239,85,59,0.3)", line=diCt(Color="#EF553B", width=1),
-    ), row=1, Col=1)
+        fillcolor="rgba(239,85,59,0.3)", line=dict(color="#EF553B", width=1),
+    ), row=1, col=1)
 
     # Renewable power
-    fig_energy.add_traCe(go.SCatter(
+    fig_energy.add_trace(go.Scatter(
         x=days, y=[s.renewable_generation_kw for s in result.history],
         name="Renewables", fill="tozeroy",
-        fillColor="rgba(0,204,150,0.3)", line=diCt(Color="#00CC96", width=1),
-    ), row=1, Col=1)
+        fillcolor="rgba(0,204,150,0.3)", line=dict(color="#00CC96", width=1),
+    ), row=1, col=1)
 
     # Demand line
-    fig_energy.add_traCe(go.SCatter(
-        x=days, y=[s.total_eleCtriCal_load_kw for s in result.history],
-        name="Demand", line=diCt(Color="#FFA15A", width=2, dash="dot"),
-    ), row=1, Col=1)
+    fig_energy.add_trace(go.Scatter(
+        x=days, y=[s.total_electrical_load_kw for s in result.history],
+        name="Demand", line=dict(color="#FFA15A", width=2, dash="dot"),
+    ), row=1, col=1)
 
     # Battery SOC
-    fig_energy.add_traCe(go.SCatter(
-        x=days, y=[s.battery.soC_kwh for s in result.history],
-        name="Battery SOC", line=diCt(Color="#AB63FA", width=2),
-        fill="tozeroy", fillColor="rgba(171,99,250,0.2)",
-    ), row=2, Col=1)
+    fig_energy.add_trace(go.Scatter(
+        x=days, y=[s.battery.soc_kwh for s in result.history],
+        name="Battery SOC", line=dict(color="#AB63FA", width=2),
+        fill="tozeroy", fillcolor="rgba(171,99,250,0.2)",
+    ), row=2, col=1)
 
     # Heating
-    fig_energy.add_traCe(go.SCatter(
+    fig_energy.add_trace(go.Scatter(
         x=days, y=[s.total_heating_demand_kw for s in result.history],
-        name="Heating Demand", line=diCt(Color="#EF553B", width=1),
-    ), row=3, Col=1)
-    fig_energy.add_traCe(go.SCatter(
+        name="Heating Demand", line=dict(color="#EF553B", width=1),
+    ), row=3, col=1)
+    fig_energy.add_trace(go.Scatter(
         x=days, y=[s.waste_heat_kw for s in result.history],
-        name="Waste Heat", line=diCt(Color="#00CC96", width=1),
-        fill="tozeroy", fillColor="rgba(0,204,150,0.2)",
-    ), row=3, Col=1)
+        name="Waste Heat", line=dict(color="#00CC96", width=1),
+        fill="tozeroy", fillcolor="rgba(0,204,150,0.2)",
+    ), row=3, col=1)
 
-    fig_energy.update_layout(height=650, margin=diCt(l=50, r=20, t=40, b=30))
-    fig_energy.update_xaxes(title_text="Day", row=3, Col=1)
-    st.plotly_Chart(fig_energy, use_Container_width=True)
+    fig_energy.update_layout(height=650, margin=dict(l=50, r=20, t=40, b=30))
+    fig_energy.update_xaxes(title_text="Day", row=3, col=1)
+    st.plotly_chart(fig_energy, use_container_width=True)
 
     # Generator status table
     st.subheader("Generator Status")
@@ -491,10 +492,11 @@ with tab_energy:
         gen_data.append({
             "Generator": label,
             "Running": "Yes" if gs.running else "Standby",
-            "Load": f"{gs.load_fraCtion*100:.0f}%",
+            "Load": f"{gs.load_fraction*100:.0f}%",
             "Hours": f"{gs.running_hours:,.0f}",
-            "Fuel Used (L)": f"{gs.fuel_Consumed_l:,.0f}",
-            "Wear & Tear": f"{(1 - gs.Condition):.0%}",
+            "Fuel Used (L)": f"{gs.fuel_consumed_l:,.0f}",
+            "Condition": f"{gs.condition:.0%}",
+            "Wear & Tear": f"{(1 - gs.condition):.0%}",
             "Status": "FAULTED" if gs.faulted else "OK",
         })
     st.table(gen_data)
@@ -502,168 +504,300 @@ with tab_energy:
 
 # ===== TAB 4: STATION PLAN (3D Digital Twin) =====
 with tab_station:
-    st.subheader("3D Spatial Model")
-    import pydeCk as pdk
+    import pydeck as pdk
     import pandas as pd
 
-    st.Caption("Live spatial model of the station. Zones are extruded by heating demand and Colored by thermal stress.")
+    st.subheader("3D Spatial Model")
+    st.caption(
+        "Station zones extruded by heating demand and colored by thermal stress. "
+        "Drag to rotate, scroll to zoom."
+    )
 
-    lat, lon = -69.408, 76.193
-    
-    building_data = []
+    # --- Build 3D data for pydeck ---
+    lat, lon = -69.408, 76.193  # Bharati station coordinates
     zones = list(final.zones.items())
     zone_assets = {a.id: a for a in graph.get_by_type(AssetType.ZONE)}
-    
+
+    building_data = []
     for i, (zid, zs) in enumerate(zones):
         z_asset = zone_assets.get(zid)
         label = zid.split(".")[-1].title() if not z_asset else z_asset.label
         target = z_asset.params.get("target_temp", 20.0) if z_asset else 20.0
         temp = zs.temperature
-        
+
         delta = target - temp
         if delta > 10:
-            Color = [239, 85, 59, 200]
+            color = [239, 85, 59, 200]
         elif delta > 5:
-            Color = [255, 176, 32, 200]
+            color = [255, 176, 32, 200]
         elif delta > 2:
-            Color = [255, 161, 90, 200]
+            color = [255, 161, 90, 200]
         else:
-            Color = [0, 204, 150, 200]
-
-        demand = zs.heating_demand_kw
+            color = [0, 204, 150, 200]
 
         building_data.append({
             "name": label,
-            "Coordinates": [lon + (i * 0.0015) - 0.001, lat],
-            "elevation": demand * 1.5,
-            "Color": Color,
-            "temp": temp,
-            "target": target,
-            "demand": demand
+            "coordinates": [lon + (i * 0.0015) - 0.001, lat],
+            "elevation": max(zs.heating_demand_kw * 1.5, 10),
+            "color": color,
+            "temp": f"{temp:.1f}",
+            "target": f"{target:.0f}",
+            "demand": f"{zs.heating_demand_kw:.0f}",
         })
-    
-    df = pd.DataFrame(building_data)
-    
-    layer = pdk.Layer(
+
+    # Generator columns (offset row below zones)
+    gens_3d = list(final.generators.items())
+    for i, (gid, gs) in enumerate(gens_3d):
+        label = gid.split(".")[-1].upper()
+        if gs.faulted:
+            color = [239, 85, 59, 220]
+        elif gs.running:
+            color = [0, 204, 150, 220]
+        else:
+            color = [80, 80, 80, 180]
+
+        building_data.append({
+            "name": f"{label} ({'FAULT' if gs.faulted else f'{gs.load_fraction*100:.0f}%'})",
+            "coordinates": [lon + (i * 0.0012) - 0.0005, lat - 0.0008],
+            "elevation": max(gs.load_fraction * 80, 8),
+            "color": color,
+            "temp": f"Cond: {gs.condition:.0%}",
+            "target": f"Wear: {(1-gs.condition):.0%}",
+            "demand": f"{gs.running_hours:.0f}h run",
+        })
+
+    df_3d = pd.DataFrame(building_data)
+
+    zone_layer = pdk.Layer(
         "ColumnLayer",
-        data=df,
-        get_position="Coordinates",
+        data=df_3d,
+        get_position="coordinates",
         get_elevation="elevation",
-        elevation_sCale=1,
-        radius=30,
-        get_fill_Color="Color",
-        piCkable=True,
+        elevation_scale=1,
+        radius=25,
+        get_fill_color="color",
+        pickable=True,
         auto_highlight=True,
     )
-    
+
     view_state = pdk.ViewState(
-        latitude=lat,
-        longitude=lon,
-        zoom=15,
-        pitCh=60,
-        bearing=45
+        latitude=lat - 0.0003,
+        longitude=lon + 0.001,
+        zoom=16,
+        pitch=55,
+        bearing=30,
     )
-    
-    st.pydeCk_Chart(pdk.DeCk(
-        layers=[layer],
+
+    st.pydeck_chart(pdk.Deck(
+        layers=[zone_layer],
         initial_view_state=view_state,
-        map_style="mapbox://styles/mapbox/satellite-v9",
-        tooltip={"text": "{name}\nTemp: {temp}C (Target: {target}C)\nHeating Demand: {demand} kW"}
+        tooltip={"text": "{name}\nTemp: {temp} C (Target: {target} C)\nDemand: {demand}"},
     ))
+
+    # --- 2D SVG detail view (collapsible) ---
+    with st.expander("2D Station Layout (detailed)", expanded=False):
+        def zone_color(temp: float, target: float) -> str:
+            delta = target - temp
+            if delta > 10:
+                return "#EF553B"  # red - severely underheat
+            elif delta > 5:
+                return "#FFB020"  # amber
+            elif delta > 2:
+                return "#FFA15A"  # light amber
+            else:
+                return "#00CC96"  # green - on target
+
+        zones = list(final.zones.items())
+        zone_assets = {a.id: a for a in graph.get_by_type(AssetType.ZONE)}
+
+        # Build SVG
+        svg_width = 800
+        svg_height = 400
+        zone_width = 220
+        zone_height = 140
+        gap = 20
+        start_x = (svg_width - (zone_width * len(zones) + gap * (len(zones) - 1))) // 2
+        start_y = 80
+
+        svg_parts = [
+            f'<svg width="{svg_width}" height="{svg_height}" '
+            f'xmlns="http://www.w3.org/2000/svg" '
+            f'style="background:#0d1117;border-radius:8px;">',
+            # Station label
+            f'<text x="{svg_width//2}" y="40" text-anchor="middle" '
+            f'fill="white" font-size="18" font-weight="bold">'
+            f'{result.station_name} Station Plan</text>',
+            f'<text x="{svg_width//2}" y="60" text-anchor="middle" '
+            f'fill="#888" font-size="12">Zones coloured by thermal status</text>',
+        ]
+
+        for i, (zid, zs) in enumerate(zones):
+            x = start_x + i * (zone_width + gap)
+            y = start_y
+            target = zone_assets[zid].params.get("target_temp", 20.0) if zid in zone_assets else 20.0
+            color = zone_color(zs.temperature, target)
+            label = zid.split(".")[-1].title()
+
+            svg_parts.extend([
+                # Zone rectangle
+                f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
+                f'rx="8" fill="{color}" opacity="0.85"/>',
+                # Zone border
+                f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
+                f'rx="8" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>',
+                # Zone name
+                f'<text x="{x + zone_width//2}" y="{y + 30}" text-anchor="middle" '
+                f'fill="white" font-size="16" font-weight="bold">{label}</text>',
+                # Temperature
+                f'<text x="{x + zone_width//2}" y="{y + 60}" text-anchor="middle" '
+                f'fill="white" font-size="28" font-weight="bold">{zs.temperature:.1f} C</text>',
+                # Target
+                f'<text x="{x + zone_width//2}" y="{y + 85}" text-anchor="middle" '
+                f'fill="rgba(255,255,255,0.7)" font-size="12">Target: {target:.0f} C</text>',
+                # Heating
+                f'<text x="{x + zone_width//2}" y="{y + 105}" text-anchor="middle" '
+                f'fill="rgba(255,255,255,0.6)" font-size="11">'
+                f'Heating: {zs.heating_kw:.1f} kW</text>',
+                # Status indicator
+                f'<circle cx="{x + zone_width - 15}" cy="{y + 15}" r="6" fill="{color}"/>',
+            ])
+
+        # Generator row
+        gen_y = start_y + zone_height + 40
+        gens = list(final.generators.items())
+        gen_box_w = 120
+        gen_start_x = (svg_width - (gen_box_w * len(gens) + gap * (len(gens) - 1))) // 2
+
+        svg_parts.append(
+            f'<text x="{svg_width//2}" y="{gen_y}" text-anchor="middle" '
+            f'fill="#888" font-size="12">Power Generation</text>'
+        )
+
+        for i, (gid, gs) in enumerate(gens):
+            x = gen_start_x + i * (gen_box_w + gap)
+            y = gen_y + 10
+            label = gid.split(".")[-1].upper()
+            color = "#EF553B" if gs.faulted else "#00CC96" if gs.running else "#444"
+
+            svg_parts.extend([
+                f'<rect x="{x}" y="{y}" width="{gen_box_w}" height="60" rx="6" '
+                f'fill="{color}" opacity="0.7"/>',
+                f'<text x="{x + gen_box_w//2}" y="{y + 22}" text-anchor="middle" '
+                f'fill="white" font-size="13" font-weight="bold">{label}</text>',
+                f'<text x="{x + gen_box_w//2}" y="{y + 40}" text-anchor="middle" '
+                f'fill="white" font-size="11">'
+                f'{"FAULT" if gs.faulted else f"{gs.load_fraction*100:.0f}%"}</text>',
+                f'<text x="{x + gen_box_w//2}" y="{y + 54}" text-anchor="middle" '
+                f'fill="rgba(255,255,255,0.6)" font-size="10">'
+                f'Cond: {gs.condition:.0%}</text>',
+            ])
+
+        svg_parts.append("</svg>")
+        svg = "\n".join(svg_parts)
+
+        st.markdown(svg, unsafe_allow_html=True)
+
+        # Legend
+        st.markdown("""
+        **Legend:**
+        - :green[Green] = Within 2 deg C of target | :orange[Amber] = 2-10 deg C below target | :red[Red] = >10 deg C below target
+        - Generator: :green[Green] = Running | :red[Red] = Faulted | Grey = Standby
+        """)
+
 
 # ===== TAB 5: ALERTS =====
 with tab_alerts:
-    st.subheader(f"ACtive Alerts ({len(alerts)})")
+    st.subheader(f"Active Alerts ({len(alerts)})")
 
     if not alerts:
-        st.suCCess("No aCtive alerts. All systems nominal.")
+        st.success("No active alerts. All systems nominal.")
     else:
         for alert in alerts:
             if alert.severity == AlertSeverity.RED:
-                iCon = "error"
-                border_Color = "#FF4444"
+                icon = "error"
+                border_color = "#FF4444"
             elif alert.severity == AlertSeverity.AMBER:
-                iCon = "warning"
-                border_Color = "#FFB020"
+                icon = "warning"
+                border_color = "#FFB020"
             else:
-                iCon = "info"
-                border_Color = "#00CC96"
+                icon = "info"
+                border_color = "#00CC96"
 
             with st.expander(
-                f"{'[ACKNOWLEDGED] ' if alert.aCknowledged else ''}[{alert.severity.value}] {alert.Cause}",
-                expanded=(alert.severity == AlertSeverity.RED and not alert.aCknowledged),
+                f"{'[ACK] ' if alert.acknowledged else ''}[{alert.severity.value}] {alert.cause}",
+                expanded=(alert.severity == AlertSeverity.RED and not alert.acknowledged),
             ):
-                st.markdown(f"**Category:** {alert.Category.value.title()}")
-                st.markdown(f"**Cause:** {alert.Cause}")
-                st.markdown(f"**EvidenCe:** {alert.evidenCe}")
-                st.markdown(f"**ConsequenCe:** {alert.ConsequenCe}")
-                st.markdown(f"**ReCommended ACtion:** {alert.reCommended_aCtion}")
+                st.markdown(f"**Category:** {alert.category.value.title()}")
+                st.markdown(f"**Cause:** {alert.cause}")
+                st.markdown(f"**Evidence:** {alert.evidence}")
+                st.markdown(f"**Consequence:** {alert.consequence}")
+                st.markdown(f"**Recommended Action:** {alert.recommended_action}")
                 if alert.extra_quantity:
                     st.markdown(f"**Extra Quantity Needed:** "
                                 f"{alert.extra_quantity:,.0f} {alert.extra_quantity_unit}")
-                
-                # Remote Management Workflows
-                if not alert.aCknowledged:
-                    Col1, Col2 = st.Columns([1, 1])
-                    with Col1:
-                        if st.button(f"ACknowledge & Assign", key=f"aCk_{alert.id}"):
-                            alert.aCknowledge()
-                            audit_logger.log_aCtion(
+
+                # --- Remote Management Workflow ---
+                if not alert.acknowledged:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Acknowledge & Assign", key=f"ack_{alert.id}"):
+                            alert.acknowledge()
+                            audit_logger.log_action(
                                 st.session_state.user,
-                                "ACknowledge Alert",
-                                f"Alert {alert.id} aCknowledged and assigned to Station Engineer."
+                                "Acknowledge Alert",
+                                f"Alert {alert.id} acknowledged and assigned to Station Engineer."
                             )
                             st.rerun()
-                    with Col2:
-                        if st.button(f"Ignore (False Positive)", key=f"ign_{alert.id}"):
-                            alert.aCknowledge()
-                            audit_logger.log_aCtion(
+                    with col2:
+                        if st.button("Dismiss (False Positive)", key=f"ign_{alert.id}"):
+                            alert.acknowledge()
+                            audit_logger.log_action(
                                 st.session_state.user,
-                                "Ignore Alert",
-                                f"Alert {alert.id} marked as False Positive."
+                                "Dismiss Alert",
+                                f"Alert {alert.id} dismissed as false positive."
                             )
                             st.rerun()
                 else:
-                    st.suCCess("Alert aCknowledged and assigned.")
+                    st.success("Alert acknowledged and assigned to crew.")
 
 
 # ---------------------------------------------------------------------------
-# Weather panel (Collapsible)
+# Weather panel (collapsible)
 # ---------------------------------------------------------------------------
 with st.expander("Weather Conditions", expanded=False):
-    fig_wx = make_subplots(rows=1, Cols=2,
+    fig_wx = make_subplots(rows=1, cols=2,
                            subplot_titles=["Temperature (C)", "Wind Speed (m/s)"])
     wx_days = [e.day_of_year for e in result.weather_history]
 
-    fig_wx.add_traCe(go.SCatter(
+    fig_wx.add_trace(go.Scatter(
         x=wx_days, y=[e.temperature for e in result.weather_history],
-        line=diCt(Color="#636EFA", width=1), name="Temperature",
-    ), row=1, Col=1)
+        line=dict(color="#636EFA", width=1), name="Temperature",
+    ), row=1, col=1)
 
-    fig_wx.add_traCe(go.SCatter(
+    fig_wx.add_trace(go.Scatter(
         x=wx_days, y=[e.wind_speed for e in result.weather_history],
-        line=diCt(Color="#EF553B", width=1), name="Wind",
-    ), row=1, Col=2)
+        line=dict(color="#EF553B", width=1), name="Wind",
+    ), row=1, col=2)
 
     fig_wx.update_layout(height=250, showlegend=False,
-                         margin=diCt(l=40, r=20, t=40, b=30))
-    st.plotly_Chart(fig_wx, use_Container_width=True)
+                         margin=dict(l=40, r=20, t=40, b=30))
+    st.plotly_chart(fig_wx, use_container_width=True)
 
 
 # ===== TAB 6: SCENARIOS =====
-with tab_sCenarios:
-    st.subheader("SCenario Presets")
-    st.Caption("Run a preset sCenario against the baseline and Compare results.")
+with tab_scenarios:
+    st.subheader("Scenario Presets")
+    st.caption("Run a preset scenario against the baseline and compare results.")
 
-    seleCted_preset = st.seleCtbox(
-        "SeleCt sCenario preset",
+    selected_preset = st.selectbox(
+        "Select scenario preset",
         list(PRESETS.keys()),
-        format_funC=lambda k: PRESETS[k].name,
+        format_func=lambda k: PRESETS[k].name,
     )
-    preset = PRESETS[seleCted_preset]
+    preset = PRESETS[selected_preset]
 
-    # Show sCenario desCription and diff
-    st.markdown(f"**DesCription:** {preset.desCription}")
+    # Show scenario description and diff
+    st.markdown(f"**Description:** {preset.description}")
 
     diff = preset.diff_from_baseline()
     if diff:
@@ -671,88 +805,88 @@ with tab_sCenarios:
         for k, v in diff.items():
             st.markdown(f"- **{k}:** {v}")
 
-    if st.button("Run SCenario Comparison", type="primary"):
+    if st.button("Run Scenario Comparison", type="primary"):
         station_file = BASE / "stations" / f"{station_name}.yaml"
         params_file = BASE / "params.yaml"
 
-        with st.spinner(f"Running '{preset.name}' sCenario..."):
-            sC_result = run_sCenario(
+        with st.spinner(f"Running '{preset.name}' scenario..."):
+            sc_result = run_scenario(
                 station_file, params_file, preset,
-                days=sim_days, foreCast_runs=min(foreCast_runs, 50),
+                days=sim_days, forecast_runs=min(forecast_runs, 50),
             )
 
-        st.session_state.sCenario_Comparison = sC_result
-        st.suCCess("SCenario Comparison Complete!")
+        st.session_state.scenario_comparison = sc_result
+        st.success("Scenario comparison complete!")
 
-    if "sCenario_Comparison" in st.session_state:
-        sC = st.session_state.sCenario_Comparison
+    if "scenario_comparison" in st.session_state:
+        sc = st.session_state.scenario_comparison
 
         # Diff summary table
-        st.subheader("Baseline vs SCenario Diff")
-        diff_data = sC.diff_summary()
-        for metriC, values in diff_data.items():
-            st.markdown(f"- **{metriC}:** {values}")
+        st.subheader("Baseline vs Scenario Diff")
+        diff_data = sc.diff_summary()
+        for metric, values in diff_data.items():
+            st.markdown(f"- **{metric}:** {values}")
 
-        # Side-by-side fuel Comparison Chart
+        # Side-by-side fuel comparison chart
         st.subheader("Fuel Level Comparison")
-        b_days = [s.time_hours / 24.0 for s in sC.baseline.history]
-        s_days = [s.time_hours / 24.0 for s in sC.sCenario_result.history]
+        b_days = [s.time_hours / 24.0 for s in sc.baseline.history]
+        s_days = [s.time_hours / 24.0 for s in sc.scenario_result.history]
 
-        b_fuel_id = [sid for sid in sC.baseline.history[0].storage if "fuel" in sid]
-        s_fuel_id = [sid for sid in sC.sCenario_result.history[0].storage if "fuel" in sid]
+        b_fuel_id = [sid for sid in sc.baseline.history[0].storage if "fuel" in sid]
+        s_fuel_id = [sid for sid in sc.scenario_result.history[0].storage if "fuel" in sid]
 
-        fig_Cmp = go.Figure()
+        fig_cmp = go.Figure()
         if b_fuel_id:
-            fig_Cmp.add_traCe(go.SCatter(
+            fig_cmp.add_trace(go.Scatter(
                 x=b_days,
-                y=[s.storage[b_fuel_id[0]].level for s in sC.baseline.history],
-                name="Baseline", line=diCt(Color="#636EFA", width=2),
+                y=[s.storage[b_fuel_id[0]].level for s in sc.baseline.history],
+                name="Baseline", line=dict(color="#636EFA", width=2),
             ))
         if s_fuel_id:
-            fig_Cmp.add_traCe(go.SCatter(
+            fig_cmp.add_trace(go.Scatter(
                 x=s_days,
-                y=[s.storage[s_fuel_id[0]].level for s in sC.sCenario_result.history],
-                name=sC.sCenario.name, line=diCt(Color="#EF553B", width=2, dash="dash"),
+                y=[s.storage[s_fuel_id[0]].level for s in sc.scenario_result.history],
+                name=sc.scenario.name, line=dict(color="#EF553B", width=2, dash="dash"),
             ))
-        fig_Cmp.update_layout(
+        fig_cmp.update_layout(
             height=350, xaxis_title="Day", yaxis_title="Fuel (L)",
-            margin=diCt(l=50, r=20, t=20, b=30),
+            margin=dict(l=50, r=20, t=20, b=30),
         )
-        st.plotly_Chart(fig_Cmp, use_Container_width=True)
+        st.plotly_chart(fig_cmp, use_container_width=True)
 
-        # Alert Comparison
+        # Alert comparison
         st.subheader("Alert Comparison")
-        aC1, aC2 = st.Columns(2)
-        with aC1:
+        ac1, ac2 = st.columns(2)
+        with ac1:
             st.markdown("**Baseline Alerts**")
-            for a in sC.baseline_alerts[:5]:
-                Color = "#FF4444" if a.severity == AlertSeverity.RED else "#FFB020"
+            for a in sc.baseline_alerts[:5]:
+                color = "#FF4444" if a.severity == AlertSeverity.RED else "#FFB020"
                 st.markdown(
-                    f'<span style="Color:{Color}">[{a.severity.value}]</span> {a.Cause}',
+                    f'<span style="color:{color}">[{a.severity.value}]</span> {a.cause}',
                     unsafe_allow_html=True,
                 )
-            if not sC.baseline_alerts:
+            if not sc.baseline_alerts:
                 st.write("No alerts.")
 
-        with aC2:
-            st.markdown(f"**{sC.sCenario.name} Alerts**")
-            for a in sC.sCenario_alerts[:5]:
-                Color = "#FF4444" if a.severity == AlertSeverity.RED else "#FFB020"
+        with ac2:
+            st.markdown(f"**{sc.scenario.name} Alerts**")
+            for a in sc.scenario_alerts[:5]:
+                color = "#FF4444" if a.severity == AlertSeverity.RED else "#FFB020"
                 st.markdown(
-                    f'<span style="Color:{Color}">[{a.severity.value}]</span> {a.Cause}',
+                    f'<span style="color:{color}">[{a.severity.value}]</span> {a.cause}',
                     unsafe_allow_html=True,
                 )
-            if not sC.sCenario_alerts:
+            if not sc.scenario_alerts:
                 st.write("No alerts.")
 
 
 # ===== TAB 7: VALIDATION =====
 with tab_validation:
-    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Calibration BaCktest"])
+    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Calibration Backtest"])
 
     with val_tab1:
         st.subheader("Sensitivity Tornado Chart")
-        st.Caption("EaCh parameter varied +/-20%. ImpaCt measured as Change in fuel exhaustion day.")
+        st.caption("Each parameter varied +/-20%. Impact measured as change in fuel exhaustion day.")
 
         if st.button("Run Sensitivity Analysis", key="sensitivity_btn"):
             station_file = BASE / "stations" / f"{station_name}.yaml"
@@ -766,7 +900,7 @@ with tab_validation:
         if "sensitivity" in st.session_state:
             sensitivity = st.session_state.sensitivity
 
-            # Tornado Chart
+            # Tornado chart
             fig_tornado = go.Figure()
 
             labels = [s.parameter for s in sensitivity]
@@ -774,15 +908,15 @@ with tab_validation:
             low_deltas = [s.low_value - baseline_val for s in sensitivity]
             high_deltas = [s.high_value - baseline_val for s in sensitivity]
 
-            fig_tornado.add_traCe(go.Bar(
+            fig_tornado.add_trace(go.Bar(
                 y=labels, x=low_deltas, orientation="h",
                 name=sensitivity[0].low_label if sensitivity else "-20%",
-                marker_Color="#636EFA",
+                marker_color="#636EFA",
             ))
-            fig_tornado.add_traCe(go.Bar(
+            fig_tornado.add_trace(go.Bar(
                 y=labels, x=high_deltas, orientation="h",
                 name=sensitivity[0].high_label if sensitivity else "+20%",
-                marker_Color="#EF553B",
+                marker_color="#EF553B",
             ))
 
             fig_tornado.update_layout(
@@ -790,9 +924,9 @@ with tab_validation:
                 title=f"Fuel Exhaustion Day Sensitivity (baseline: day {baseline_val:.0f})",
                 xaxis_title="Change in exhaustion day (days)",
                 barmode="overlay",
-                margin=diCt(l=150, r=20, t=60, b=30),
+                margin=dict(l=150, r=20, t=60, b=30),
             )
-            st.plotly_Chart(fig_tornado, use_Container_width=True)
+            st.plotly_chart(fig_tornado, use_container_width=True)
 
             # Data table
             st.subheader("Sensitivity Data")
@@ -808,71 +942,71 @@ with tab_validation:
             st.table(table_data)
 
     with val_tab2:
-        st.subheader("Calibration BaCktest")
-        st.Caption("CheCks that model outputs fall within defensible physiCal bounds.")
+        st.subheader("Calibration Backtest")
+        st.caption("Checks that model outputs fall within defensible physical bounds.")
 
-        if st.button("Run BaCktest", key="baCktest_btn"):
+        if st.button("Run Backtest", key="backtest_btn"):
             station_file = BASE / "stations" / f"{station_name}.yaml"
             params_file = BASE / "params.yaml"
 
-            with st.spinner("Running Calibration baCktest..."):
-                CheCks = run_baCktest(station_file, params_file)
+            with st.spinner("Running calibration backtest..."):
+                checks = run_backtest(station_file, params_file)
 
-            st.session_state.baCktest = CheCks
+            st.session_state.backtest = checks
 
-        if "baCktest" in st.session_state:
-            CheCks = st.session_state.baCktest
-            n_pass = sum(1 for C in CheCks if C.passed)
-            n_total = len(CheCks)
+        if "backtest" in st.session_state:
+            checks = st.session_state.backtest
+            n_pass = sum(1 for c in checks if c.passed)
+            n_total = len(checks)
 
             if n_pass == n_total:
-                st.suCCess(f"All {n_total} CheCks passed!")
+                st.success(f"All {n_total} checks passed!")
             else:
-                st.error(f"{n_total - n_pass} of {n_total} CheCks failed.")
+                st.error(f"{n_total - n_pass} of {n_total} checks failed.")
 
-            for CheCk in CheCks:
-                iCon = "white_CheCk_mark" if CheCk.passed else "x"
+            for check in checks:
+                icon = "white_check_mark" if check.passed else "x"
                 with st.expander(
-                    f":{iCon}: {CheCk.name}",
-                    expanded=not CheCk.passed,
+                    f":{icon}: {check.name}",
+                    expanded=not check.passed,
                 ):
-                    st.markdown(f"**DesCription:** {CheCk.desCription}")
-                    st.markdown(f"**ExpeCted:** {CheCk.expeCted_range}")
-                    st.markdown(f"**ACtual:** {CheCk.aCtual_value:,.2f} {CheCk.unit}")
-                    st.markdown(f"**Result:** {'PASS' if CheCk.passed else 'FAIL'}")
+                    st.markdown(f"**Description:** {check.description}")
+                    st.markdown(f"**Expected:** {check.expected_range}")
+                    st.markdown(f"**Actual:** {check.actual_value:,.2f} {check.unit}")
+                    st.markdown(f"**Result:** {'PASS' if check.passed else 'FAIL'}")
 
 
 # ===== TAB 8: PROVENANCE & AUDIT =====
-with tab_provenanCe:
+with tab_provenance:
     prov_tab1, prov_tab2, prov_tab3 = st.tabs(
-        ["Parameter ProvenanCe", "Audit Log", "System Info"]
+        ["Parameter Provenance", "Audit Log", "System Info"]
     )
 
-    # --- Parameter ProvenanCe ---
+    # --- Parameter Provenance ---
     with prov_tab1:
-        st.subheader("Parameter ProvenanCe")
-        st.Caption("Every parameter in the model is traCed to a published sourCe or marked as an assumption.")
+        st.subheader("Parameter Provenance")
+        st.caption("Every parameter in the model is traced to a published source or marked as an assumption.")
 
-        provenanCe = get_provenanCe(params)
-        if provenanCe:
+        provenance = get_provenance(params)
+        if provenance:
             st.dataframe(
-                provenanCe,
-                use_Container_width=True,
+                provenance,
+                use_container_width=True,
                 hide_index=True,
-                Column_Config={
-                    "Parameter": st.Column_Config.TextColumn("Parameter", width="medium"),
-                    "Value": st.Column_Config.TextColumn("Value", width="small"),
-                    "Unit": st.Column_Config.TextColumn("Unit", width="small"),
-                    "SourCe": st.Column_Config.TextColumn("SourCe / Citation", width="large"),
+                column_config={
+                    "Parameter": st.column_config.TextColumn("Parameter", width="medium"),
+                    "Value": st.column_config.TextColumn("Value", width="small"),
+                    "Unit": st.column_config.TextColumn("Unit", width="small"),
+                    "Source": st.column_config.TextColumn("Source / Citation", width="large"),
                 },
             )
 
             # Stats
-            n_sourCed = sum(1 for p in provenanCe if "assumption" not in p["SourCe"].lower())
-            n_total = len(provenanCe)
+            n_sourced = sum(1 for p in provenance if "assumption" not in p["Source"].lower())
+            n_total = len(provenance)
             st.info(
-                f"**{n_sourCed}** of **{n_total}** parameters have published sourCes. "
-                f"**{n_total - n_sourCed}** are marked as assumptions."
+                f"**{n_sourced}** of **{n_total}** parameters have published sources. "
+                f"**{n_total - n_sourced}** are marked as assumptions."
             )
         else:
             st.warning("No parameter data available. Run a simulation first.")
@@ -880,13 +1014,13 @@ with tab_provenanCe:
     # --- Audit Log ---
     with prov_tab2:
         st.subheader("Audit Log")
-        st.Caption("TraCks who did what and when, for aCCountability and reproduCibility.")
+        st.caption("Tracks who did what and when, for accountability and reproducibility.")
 
-        if CheCk_permission(st.session_state.user, "view_audit"):
+        if check_permission(st.session_state.user, "view_audit"):
             logs = audit_logger.get_logs(limit=200)
-            total = audit_logger.Count()
+            total = audit_logger.count()
 
-            st.metriC("Total audit entries", total)
+            st.metric("Total audit entries", total)
 
             if logs:
                 log_data = [
@@ -894,20 +1028,20 @@ with tab_provenanCe:
                         "Timestamp": entry.timestamp,
                         "User": entry.username,
                         "Role": entry.role,
-                        "ACtion": entry.aCtion,
+                        "Action": entry.action,
                         "Details": entry.details,
                     }
                     for entry in logs
                 ]
-                st.dataframe(log_data, use_Container_width=True, hide_index=True)
+                st.dataframe(log_data, use_container_width=True, hide_index=True)
             else:
                 st.info("No audit entries yet. Run a simulation to generate entries.")
 
             # Clear button (Admin only)
-            if CheCk_permission(st.session_state.user, "Clear_audit"):
-                if st.button("Clear Audit Log", type="seCondary"):
-                    audit_logger.Clear()
-                    audit_logger.log_aCtion(
+            if check_permission(st.session_state.user, "clear_audit"):
+                if st.button("Clear Audit Log", type="secondary"):
+                    audit_logger.clear()
+                    audit_logger.log_action(
                         st.session_state.user, "Clear Audit Log",
                         "All previous audit entries deleted",
                     )
@@ -919,18 +1053,18 @@ with tab_provenanCe:
     with prov_tab3:
         st.subheader("System Information")
 
-        st.markdown("**Platform:** AntarCtiC Station Digital Twin")
-        st.markdown("**Problem Statement:** SIH26060 - Digital Platform for Remote Management of Indian AntarCtiC ResearCh Stations")
-        st.markdown("**Data SourCes:** YAML Configuration files (loCal)")
+        st.markdown("**Platform:** Antarctic Station Digital Twin")
+        st.markdown("**Problem Statement:** SIH26060 - Digital Platform for Remote Management of Indian Antarctic Research Stations")
+        st.markdown("**Data Sources:** YAML configuration files (local)")
 
         st.divider()
         st.markdown("**Available Stations:**")
-        for s in data_sourCe.list_stations():
+        for s in data_source.list_stations():
             st.markdown(f"- {s.title()}")
 
         st.divider()
         st.markdown("**Role Permissions:**")
-        from antarCtiC_twin.database import ROLE_PERMISSIONS
+        from antarctic_twin.database import ROLE_PERMISSIONS
         for role, perms in ROLE_PERMISSIONS.items():
             st.markdown(f"- **{role.value}:** {', '.join(sorted(perms))}")
 
@@ -939,4 +1073,3 @@ with tab_provenanCe:
         user = st.session_state.user
         st.markdown(f"- Username: `{user.username}`")
         st.markdown(f"- Role: `{user.role.value}`")
-
