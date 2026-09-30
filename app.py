@@ -355,7 +355,7 @@ with tab_overview:
             severity_color = "#FF4444" if alert.severity == AlertSeverity.RED else "#FFB020"
             st.markdown(
                 f'<div style="border-left:4px solid {severity_color};padding:8px 12px;'
-                f'margin:4px 0;background:#1a1a2e;border-radius:0 4px 4px 0;">'
+                f'margin:4px 0;background:#1a1a2e;color:#f0f0f0;border-radius:0 4px 4px 0;">'
                 f'<b style="color:{severity_color}">[{alert.severity.value}]</b> '
                 f'{alert.cause}</div>',
                 unsafe_allow_html=True,
