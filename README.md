@@ -2,9 +2,37 @@
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060-runtimeerror01.streamlit.app)
 
-**SIH26060 - Digital Platform for Efficient Remote Management of Indian Antarctic Research Stations**
+## SIH 2026 Submission
 
-A physics-based digital twin that simulates the energy, thermal, and consumable systems of Indian Antarctic stations (Bharati and Maitri). It forecasts resource exhaustion, generates actionable alerts, and supports what-if scenario analysis — all through an interactive Streamlit dashboard.
+**Problem Statement:** SIH26060  
+**Title:** Digital Platform for efficient remote management of Indian Antarctic Research Stations  
+**Organization:** Ministry of Earth Sciences (MoES)  
+**Department:** National Centre for Polar and Ocean Research (NCPOR)  
+**Category:** Software  
+**Theme:** Smart Automation  
+
+### Prototype
+
+Live prototype: https://sih26060-runtimeerror01.streamlit.app
+
+### Data Disclaimer
+
+This prototype uses **synthetic/simulated telemetry and engineering assumptions** because operational Maitri/Bharati station telemetry is not publicly available to the project team.
+
+The system is designed around a common telemetry/data-source interface so that authorized real station feeds can replace the synthetic source without redesigning the dashboard or simulation architecture.
+
+### Core Demonstration
+
+The key digital-twin workflow demonstrated by this prototype is:
+
+Environmental conditions  
+→ Thermal demand  
+→ Energy dispatch  
+→ Generator loading / fuel consumption  
+→ Consumable depletion  
+→ Monte Carlo exhaustion forecast  
+→ Resupply risk  
+→ Actionable alert / recommendation
 
 ---
 
