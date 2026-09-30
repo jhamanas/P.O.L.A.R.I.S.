@@ -6,9 +6,10 @@ fields, and provides typed access helpers.
 
 from __future__ import annotations
 
-import yaml
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -16,7 +17,7 @@ def load_yaml(path: Path) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
     if not isinstance(data, dict):
-        raise ValueError(f"{path} did not parse to a dict")
+        raise TypeError(f"{path} did not parse to a dict")
     return data
 
 

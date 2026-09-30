@@ -1,10 +1,7 @@
 """Tests for the weather generator."""
 
-from pathlib import Path
 from antarctic_twin.config import load_params, load_station
 from antarctic_twin.weather import WeatherGenerator
-
-
 from tests.conftest import REPO_ROOT as BASE
 
 
@@ -37,7 +34,7 @@ def test_different_seeds_differ():
 
 def test_winter_colder_than_summer():
     """Mid-winter (day 190) should be colder than mid-summer (day 0)."""
-    w = _make_weather(seed=42)
+    _make_weather(seed=42)
     # Generate weather at summer (day 0) and winter (day 190)
     # Need fresh generators for fair comparison
     ws = _make_weather(seed=42)

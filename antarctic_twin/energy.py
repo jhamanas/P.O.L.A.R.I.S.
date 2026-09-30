@@ -17,10 +17,9 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from .types import AssetType, Environment
-from .asset_graph import AssetGraph, Asset
+from .asset_graph import Asset, AssetGraph
 from .config import param_value
-
+from .types import AssetType, Environment
 
 # ---------------------------------------------------------------------------
 # Renewable energy models

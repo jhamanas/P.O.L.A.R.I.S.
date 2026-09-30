@@ -1,8 +1,9 @@
 """Phase 1 calibration: full year, both stations, cascade check."""
-from antarctic_twin.engine import run_station, SimulationEngine
-from antarctic_twin.config import load_station, load_params
-from pathlib import Path
 import time
+from pathlib import Path
+
+from antarctic_twin.config import load_params, load_station
+from antarctic_twin.engine import SimulationEngine
 
 BASE = Path(__file__).resolve().parent
 
@@ -36,11 +37,11 @@ for station in ['bharati', 'maitri']:
                 print(f" [EXHAUSTED day {s.time_hours/24:.0f}]", end="")
                 break
         else:
-            print(f" [SURVIVES]", end="")
+            print(" [SURVIVES]", end="")
         print()
 
     # Fuel burn rate
-    fuel_id = [sid for sid in result.history[0].storage if "fuel" in sid][0]
+    fuel_id = next(sid for sid in result.history[0].storage if "fuel" in sid)
     day30_fuel = result.history[30*24].storage[fuel_id].level
     day0_fuel = result.history[0].storage[fuel_id].level
     daily_rate = (day0_fuel - day30_fuel) / 30
@@ -48,13 +49,13 @@ for station in ['bharati', 'maitri']:
 
     # Zone temps at mid-winter
     winter_state = result.history[190*24]
-    print(f"  Mid-winter zone temps:")
+    print("  Mid-winter zone temps:")
     for zid, zs in winter_state.zones.items():
         label = zid.split('.')[-1]
         print(f"    {label}: {zs.temperature:.1f}°C (demand {zs.heating_demand_kw:.1f}kW, applied {zs.heating_kw:.1f}kW)")
 
     # Generator condition and faults
-    print(f"  Generator status at day 365:")
+    print("  Generator status at day 365:")
     for gid, gs in f.generators.items():
         label = gid.split('.')[-1]
         status = "FAULTED" if gs.faulted else "OK"
@@ -81,7 +82,7 @@ params = load_params(BASE / "params.yaml")
 
 # Baseline
 r_base = SimulationEngine(cfg, params, seed=42).run(days=365)
-fuel_id = [sid for sid in r_base.history[0].storage if "fuel" in sid][0]
+fuel_id = next(sid for sid in r_base.history[0].storage if "fuel" in sid)
 fuel_base_200 = r_base.history[200*24].storage[fuel_id].level
 fuel_base_end = r_base.final_state.storage[fuel_id].level
 

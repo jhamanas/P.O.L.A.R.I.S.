@@ -1,19 +1,17 @@
 """Phase 1 tests: energy dispatch, condition/faults, couplings, cascade invariants."""
 
-from pathlib import Path
-import math
-from antarctic_twin.config import load_params, load_station, param_value
 from antarctic_twin.asset_graph import AssetGraph
-from antarctic_twin.state import initialize_state, step, GeneratorState
-from antarctic_twin.weather import WeatherGenerator
-from antarctic_twin.types import Environment, AssetType
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.energy import (
-    wind_turbine_power, solar_panel_power, battery_dispatch,
-    update_condition, check_fault, dispatch_energy
+    battery_dispatch,
+    check_fault,
+    update_condition,
+    wind_turbine_power,
 )
 from antarctic_twin.engine import SimulationEngine
-
-
+from antarctic_twin.state import initialize_state, step
+from antarctic_twin.types import AssetType, Environment
+from antarctic_twin.weather import WeatherGenerator
 from tests.conftest import REPO_ROOT as BASE
 
 
@@ -30,7 +28,7 @@ def _setup(station="bharati"):
 
 def test_energy_balance_every_step():
     """Generation + renewables + battery >= demand - unmet at every step."""
-    state, graph, params, weather, cfg = _setup()
+    _state, _graph, params, _weather, cfg = _setup()
     engine = SimulationEngine(cfg, params, seed=42)
     result = engine.run(days=30)
 
@@ -47,7 +45,7 @@ def test_energy_balance_every_step():
 
 def test_no_negative_stocks():
     """No stock should ever go negative in a 365-day run."""
-    _, graph, params, _, cfg = _setup()
+    _, _graph, params, _, cfg = _setup()
     engine = SimulationEngine(cfg, params, seed=42)
     result = engine.run(days=365)
     for s in result.history:
@@ -75,14 +73,14 @@ def test_monotonic_heating_vs_temperature():
 
 def test_lower_temp_moves_exhaustion_earlier():
     """A colder scenario should exhaust fuel faster."""
-    _, graph, params, _, cfg = _setup()
+    _, _graph, params, _, cfg = _setup()
 
     # Normal run
     engine1 = SimulationEngine(cfg, params, seed=42)
     r1 = engine1.run(days=365)
 
     # Find fuel exhaustion day for normal
-    fuel_id = [sid for sid in r1.history[0].storage if "fuel" in sid][0]
+    fuel_id = next(sid for sid in r1.history[0].storage if "fuel" in sid)
     exhaust_day_normal = None
     for s in r1.history:
         if s.storage[fuel_id].level <= 0:
@@ -190,18 +188,18 @@ def test_fault_probability_increases_with_degradation():
 
 def test_faulted_generator_reduces_capacity():
     """A faulted generator should produce less power."""
-    _, graph, params, _, cfg = _setup()
+    _, graph, params, _, _cfg = _setup()
     state = initialize_state(graph, crew_count=15)
 
     env = Environment(temperature=-15.0, wind_speed=5.0, solar_irradiance=0.0,
                       is_storm=False, day_of_year=190.0, hour=12.0)
 
     # Normal run
-    normal = step(state, env, 1.0, graph, params)
+    step(state, env, 1.0, graph, params)
 
     # Fault gen1
     faulted_state = state.copy()
-    gen1_id = [gid for gid in faulted_state.generators if "gen1" in gid][0]
+    gen1_id = next(gid for gid in faulted_state.generators if "gen1" in gid)
     faulted_state.generators[gen1_id].faulted = True
     faulted_state.generators[gen1_id].fault_capacity_reduction = 0.5
 
@@ -250,8 +248,8 @@ def test_priority_heating():
     result = step(state, cold, 1.0, graph, params)
 
     # Living zone (target 20°C) should get more heating than workshop (target 10°C)
-    living_id = [zid for zid in result.zones if "living" in zid][0]
-    workshop_id = [zid for zid in result.zones if "workshop" in zid][0]
+    living_id = next(zid for zid in result.zones if "living" in zid)
+    workshop_id = next(zid for zid in result.zones if "workshop" in zid)
 
     living_heat = result.zones[living_id].heating_kw
     workshop_heat = result.zones[workshop_id].heating_kw

@@ -10,23 +10,35 @@ Features:
   - SVG station plan with zones coloured by status
 """
 
-import streamlit as st
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
-from pathlib import Path
-from antarctic_twin.engine import SimulationEngine
-from antarctic_twin.config import load_station, load_params, param_value
-from antarctic_twin.asset_graph import AssetGraph
-from antarctic_twin.forecast import run_forecast
-from antarctic_twin.alerts import derive_alerts, AlertSeverity, AlertCategory
-from antarctic_twin.types import AssetType
-from antarctic_twin.scenarios import (
-    PRESETS, run_scenario, run_sensitivity, run_backtest,
-    Scenario, fork_scenario,
+
+from antarctic_twin.alerts import AlertSeverity, derive_alerts
+from antarctic_twin.config import param_value
+from antarctic_twin.database import (
+    AuditLogger,
+    Role,
+    User,
+    check_permission,
+    get_provenance,
 )
-from antarctic_twin.database import AuditLogger, Role, User, check_permission, get_provenance
+from antarctic_twin.engine import SimulationEngine
+from antarctic_twin.forecast import run_forecast
 from antarctic_twin.interfaces import YamlDataSource
+from antarctic_twin.scenarios import (
+    PRESETS,
+    Scenario,
+    fork_scenario,
+    run_backtest,
+    run_scenario,
+    run_sensitivity,
+)
+from antarctic_twin.types import AssetType
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -289,23 +301,23 @@ with tab_overview:
         fig_cons.add_trace(
             go.Scatter(x=days,
                        y=[s.storage[fuel_ids[0]].level for s in result.history],
-                       name="Fuel", line=dict(color="#EF553B", width=2)),
+                       name="Fuel", line={"color": "#EF553B", "width": 2}),
             row=1, col=1)
     if water_ids:
         fig_cons.add_trace(
             go.Scatter(x=days,
                        y=[s.storage[water_ids[0]].level for s in result.history],
-                       name="Water", line=dict(color="#636EFA", width=2)),
+                       name="Water", line={"color": "#636EFA", "width": 2}),
             row=1, col=2)
     if food_ids:
         fig_cons.add_trace(
             go.Scatter(x=days,
                        y=[s.storage[food_ids[0]].level for s in result.history],
-                       name="Food", line=dict(color="#00CC96", width=2)),
+                       name="Food", line={"color": "#00CC96", "width": 2}),
             row=1, col=3)
 
     fig_cons.update_layout(height=300, showlegend=False,
-                           margin=dict(l=40, r=20, t=40, b=30))
+                           margin={"l": 40, "r": 20, "t": 40, "b": 30})
     for i in range(1, 4):
         fig_cons.update_xaxes(title_text="Day", row=1, col=i)
     st.plotly_chart(fig_cons, use_container_width=True)
@@ -319,11 +331,11 @@ with tab_overview:
         fig_temp.add_trace(go.Scatter(
             x=days,
             y=[s.zones[zid].temperature for s in result.history],
-            name=label, line=dict(color=colors[idx % len(colors)], width=2),
+            name=label, line={"color": colors[idx % len(colors)], "width": 2},
         ))
     fig_temp.update_layout(height=300, yaxis_title="Temperature (C)",
                            xaxis_title="Day",
-                           margin=dict(l=40, r=20, t=20, b=30))
+                           margin={"l": 40, "r": 20, "t": 20, "b": 30})
     st.plotly_chart(fig_temp, use_container_width=True)
 
     # Alert summary
@@ -376,7 +388,7 @@ with tab_forecast:
             x=np.concatenate([forecast_days, forecast_days[::-1]]),
             y=np.concatenate([p10, p90[::-1]]),
             fill="toself", fillcolor="rgba(99,110,250,0.15)",
-            line=dict(color="rgba(0,0,0,0)"),
+            line={"color": "rgba(0,0,0,0)"},
             name="P10-P90 range", showlegend=True,
         ))
 
@@ -385,14 +397,14 @@ with tab_forecast:
             x=np.concatenate([forecast_days, forecast_days[::-1]]),
             y=np.concatenate([p25, p75[::-1]]),
             fill="toself", fillcolor="rgba(99,110,250,0.3)",
-            line=dict(color="rgba(0,0,0,0)"),
+            line={"color": "rgba(0,0,0,0)"},
             name="P25-P75 range", showlegend=True,
         ))
 
         # P50 line
         fig_fan.add_trace(go.Scatter(
             x=forecast_days, y=p50,
-            line=dict(color="#636EFA", width=3),
+            line={"color": "#636EFA", "width": 3},
             name="P50 (median)",
         ))
 
@@ -408,7 +420,7 @@ with tab_forecast:
         fig_fan.update_layout(
             height=450, title="Fuel Level Forecast (Fan Chart)",
             xaxis_title="Day of Year", yaxis_title="Fuel (L)",
-            margin=dict(l=50, r=20, t=60, b=40),
+            margin={"l": 50, "r": 20, "t": 60, "b": 40},
         )
         st.plotly_chart(fig_fan, use_container_width=True)
 
@@ -464,41 +476,41 @@ with tab_energy:
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.total_generation_kw for s in result.history],
         name="Generators", fill="tozeroy",
-        fillcolor="rgba(239,85,59,0.3)", line=dict(color="#EF553B", width=1),
+        fillcolor="rgba(239,85,59,0.3)", line={"color": "#EF553B", "width": 1},
     ), row=1, col=1)
 
     # Renewable power
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.renewable_generation_kw for s in result.history],
         name="Renewables", fill="tozeroy",
-        fillcolor="rgba(0,204,150,0.3)", line=dict(color="#00CC96", width=1),
+        fillcolor="rgba(0,204,150,0.3)", line={"color": "#00CC96", "width": 1},
     ), row=1, col=1)
 
     # Demand line
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.total_electrical_load_kw for s in result.history],
-        name="Demand", line=dict(color="#FFA15A", width=2, dash="dot"),
+        name="Demand", line={"color": "#FFA15A", "width": 2, "dash": "dot"},
     ), row=1, col=1)
 
     # Battery SOC
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.battery.soc_kwh for s in result.history],
-        name="Battery SOC", line=dict(color="#AB63FA", width=2),
+        name="Battery SOC", line={"color": "#AB63FA", "width": 2},
         fill="tozeroy", fillcolor="rgba(171,99,250,0.2)",
     ), row=2, col=1)
 
     # Heating
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.total_heating_demand_kw for s in result.history],
-        name="Heating Demand", line=dict(color="#EF553B", width=1),
+        name="Heating Demand", line={"color": "#EF553B", "width": 1},
     ), row=3, col=1)
     fig_energy.add_trace(go.Scatter(
         x=days, y=[s.waste_heat_kw for s in result.history],
-        name="Waste Heat", line=dict(color="#00CC96", width=1),
+        name="Waste Heat", line={"color": "#00CC96", "width": 1},
         fill="tozeroy", fillcolor="rgba(0,204,150,0.2)",
     ), row=3, col=1)
 
-    fig_energy.update_layout(height=650, margin=dict(l=50, r=20, t=40, b=30))
+    fig_energy.update_layout(height=650, margin={"l": 50, "r": 20, "t": 40, "b": 30})
     fig_energy.update_xaxes(title_text="Day", row=3, col=1)
     st.plotly_chart(fig_energy, use_container_width=True)
 
@@ -522,8 +534,8 @@ with tab_energy:
 
 # ===== TAB 4: STATION PLAN (3D Digital Twin) =====
 with tab_station:
-    import pydeck as pdk
     import pandas as pd
+    import pydeck as pdk
 
     st.subheader("3D Spatial Model")
     st.caption(
@@ -640,15 +652,15 @@ with tab_station:
         start_y = 80
 
         svg_parts = [
-            f'<svg width="{svg_width}" height="{svg_height}" '
+            (f'<svg width="{svg_width}" height="{svg_height}" '
             f'xmlns="http://www.w3.org/2000/svg" '
-            f'style="background:#0d1117;border-radius:8px;">',
+            f'style="background:#0d1117;border-radius:8px;">'),
             # Station label
-            f'<text x="{svg_width//2}" y="40" text-anchor="middle" '
+            (f'<text x="{svg_width//2}" y="40" text-anchor="middle" '
             f'fill="white" font-size="18" font-weight="bold">'
-            f'{result.station_name} Station Plan</text>',
-            f'<text x="{svg_width//2}" y="60" text-anchor="middle" '
-            f'fill="#888" font-size="12">Zones coloured by thermal status</text>',
+            f'{result.station_name} Station Plan</text>'),
+            (f'<text x="{svg_width//2}" y="60" text-anchor="middle" '
+            f'fill="#888" font-size="12">Zones coloured by thermal status</text>'),
         ]
 
         for i, (zid, zs) in enumerate(zones):
@@ -660,24 +672,24 @@ with tab_station:
 
             svg_parts.extend([
                 # Zone rectangle
-                f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
-                f'rx="8" fill="{color}" opacity="0.85"/>',
+                (f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
+                f'rx="8" fill="{color}" opacity="0.85"/>'),
                 # Zone border
-                f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
-                f'rx="8" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>',
+                (f'<rect x="{x}" y="{y}" width="{zone_width}" height="{zone_height}" '
+                f'rx="8" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>'),
                 # Zone name
-                f'<text x="{x + zone_width//2}" y="{y + 30}" text-anchor="middle" '
-                f'fill="white" font-size="16" font-weight="bold">{label}</text>',
+                (f'<text x="{x + zone_width//2}" y="{y + 30}" text-anchor="middle" '
+                f'fill="white" font-size="16" font-weight="bold">{label}</text>'),
                 # Temperature
-                f'<text x="{x + zone_width//2}" y="{y + 60}" text-anchor="middle" '
-                f'fill="white" font-size="28" font-weight="bold">{zs.temperature:.1f} C</text>',
+                (f'<text x="{x + zone_width//2}" y="{y + 60}" text-anchor="middle" '
+                f'fill="white" font-size="28" font-weight="bold">{zs.temperature:.1f} C</text>'),
                 # Target
-                f'<text x="{x + zone_width//2}" y="{y + 85}" text-anchor="middle" '
-                f'fill="rgba(255,255,255,0.7)" font-size="12">Target: {target:.0f} C</text>',
+                (f'<text x="{x + zone_width//2}" y="{y + 85}" text-anchor="middle" '
+                f'fill="rgba(255,255,255,0.7)" font-size="12">Target: {target:.0f} C</text>'),
                 # Heating
-                f'<text x="{x + zone_width//2}" y="{y + 105}" text-anchor="middle" '
+                (f'<text x="{x + zone_width//2}" y="{y + 105}" text-anchor="middle" '
                 f'fill="rgba(255,255,255,0.6)" font-size="11">'
-                f'Heating: {zs.heating_kw:.1f} kW</text>',
+                f'Heating: {zs.heating_kw:.1f} kW</text>'),
                 # Status indicator
                 f'<circle cx="{x + zone_width - 15}" cy="{y + 15}" r="6" fill="{color}"/>',
             ])
@@ -700,16 +712,16 @@ with tab_station:
             color = "#EF553B" if gs.faulted else "#00CC96" if gs.running else "#444"
 
             svg_parts.extend([
-                f'<rect x="{x}" y="{y}" width="{gen_box_w}" height="60" rx="6" '
-                f'fill="{color}" opacity="0.7"/>',
-                f'<text x="{x + gen_box_w//2}" y="{y + 22}" text-anchor="middle" '
-                f'fill="white" font-size="13" font-weight="bold">{label}</text>',
-                f'<text x="{x + gen_box_w//2}" y="{y + 40}" text-anchor="middle" '
+                (f'<rect x="{x}" y="{y}" width="{gen_box_w}" height="60" rx="6" '
+                f'fill="{color}" opacity="0.7"/>'),
+                (f'<text x="{x + gen_box_w//2}" y="{y + 22}" text-anchor="middle" '
+                f'fill="white" font-size="13" font-weight="bold">{label}</text>'),
+                (f'<text x="{x + gen_box_w//2}" y="{y + 40}" text-anchor="middle" '
                 f'fill="white" font-size="11">'
-                f'{"FAULT" if gs.faulted else f"{gs.load_fraction*100:.0f}%"}</text>',
-                f'<text x="{x + gen_box_w//2}" y="{y + 54}" text-anchor="middle" '
+                f'{"FAULT" if gs.faulted else f"{gs.load_fraction*100:.0f}%"}</text>'),
+                (f'<text x="{x + gen_box_w//2}" y="{y + 54}" text-anchor="middle" '
                 f'fill="rgba(255,255,255,0.6)" font-size="10">'
-                f'Cond: {gs.condition:.0%}</text>',
+                f'Cond: {gs.condition:.0%}</text>'),
             ])
 
         svg_parts.append("</svg>")
@@ -761,7 +773,7 @@ with tab_live:
                 f"Sim Day: **{live_data.get('sim_day', '?')}** | "
                 f"Day of Year: **{live_data.get('day_of_year', '?')}**"
             )
-    except Exception:
+    except (_requests.RequestException, ValueError):
         with col_status:
             st.error(
                 "Cannot reach telemetry server. "
@@ -881,16 +893,16 @@ with st.expander("Weather Conditions", expanded=False):
 
     fig_wx.add_trace(go.Scatter(
         x=wx_days, y=[e.temperature for e in result.weather_history],
-        line=dict(color="#636EFA", width=1), name="Temperature",
+        line={"color": "#636EFA", "width": 1}, name="Temperature",
     ), row=1, col=1)
 
     fig_wx.add_trace(go.Scatter(
         x=wx_days, y=[e.wind_speed for e in result.weather_history],
-        line=dict(color="#EF553B", width=1), name="Wind",
+        line={"color": "#EF553B", "width": 1}, name="Wind",
     ), row=1, col=2)
 
     fig_wx.update_layout(height=250, showlegend=False,
-                         margin=dict(l=40, r=20, t=40, b=30))
+                         margin={"l": 40, "r": 20, "t": 40, "b": 30})
     st.plotly_chart(fig_wx, use_container_width=True)
 
 
@@ -954,17 +966,17 @@ with tab_scenarios:
             fig_cmp.add_trace(go.Scatter(
                 x=b_days,
                 y=[s.storage[b_fuel_id[0]].level for s in sc.baseline.history],
-                name="Baseline", line=dict(color="#636EFA", width=2),
+                name="Baseline", line={"color": "#636EFA", "width": 2},
             ))
         if s_fuel_id:
             fig_cmp.add_trace(go.Scatter(
                 x=s_days,
                 y=[s.storage[s_fuel_id[0]].level for s in sc.scenario_result.history],
-                name=sc.scenario.name, line=dict(color="#EF553B", width=2, dash="dash"),
+                name=sc.scenario.name, line={"color": "#EF553B", "width": 2, "dash": "dash"},
             ))
         fig_cmp.update_layout(
             height=350, xaxis_title="Day", yaxis_title="Fuel (L)",
-            margin=dict(l=50, r=20, t=20, b=30),
+            margin={"l": 50, "r": 20, "t": 20, "b": 30},
         )
         st.plotly_chart(fig_cmp, use_container_width=True)
 
@@ -1042,7 +1054,7 @@ with tab_validation:
                 title=f"Fuel Exhaustion Day Sensitivity (baseline: day {baseline_val:.0f})",
                 xaxis_title="Change in exhaustion day (days)",
                 barmode="overlay",
-                margin=dict(l=150, r=20, t=60, b=30),
+                margin={"l": 150, "r": 20, "t": 60, "b": 30},
             )
             st.plotly_chart(fig_tornado, use_container_width=True)
 
@@ -1160,14 +1172,13 @@ with tab_provenance:
                 st.info("No audit entries yet. Run a simulation to generate entries.")
 
             # Clear button (Admin only)
-            if check_permission(st.session_state.user, "clear_audit"):
-                if st.button("Clear Audit Log", type="secondary"):
-                    audit_logger.clear()
-                    audit_logger.log_action(
-                        st.session_state.user, "Clear Audit Log",
-                        "All previous audit entries deleted",
-                    )
-                    st.rerun()
+            if check_permission(st.session_state.user, "clear_audit") and st.button("Clear Audit Log", type="secondary"):
+                audit_logger.clear()
+                audit_logger.log_action(
+                    st.session_state.user, "Clear Audit Log",
+                    "All previous audit entries deleted",
+                )
+                st.rerun()
         else:
             st.warning("Your role does not have permission to view the audit log.")
 

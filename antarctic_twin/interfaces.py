@@ -9,10 +9,10 @@ could read from a REST API or database.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 from pathlib import Path
+from typing import Any
 
-from .config import load_station, load_params
+from .config import load_params, load_station
 
 
 class DataSource(ABC):

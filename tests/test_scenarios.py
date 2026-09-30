@@ -1,6 +1,6 @@
-import pytest
 from pathlib import Path
-from antarctic_twin.config import load_station, load_params
+
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.scenarios import Scenario, fork_scenario
 
 BASE = Path(__file__).resolve().parent.parent

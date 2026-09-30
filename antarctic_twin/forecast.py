@@ -11,14 +11,13 @@ engine but with shorter timesteps if needed.
 
 from __future__ import annotations
 
-import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-from pathlib import Path
+
+import numpy as np
 
 from .asset_graph import AssetGraph
 from .config import param_value
-from .engine import SimulationEngine
 from .state import StationState, step
 from .types import AssetType
 from .weather import WeatherGenerator
@@ -197,8 +196,8 @@ def run_forecast(
             if store_trajectories and step_idx % steps_per_day == 0:
                 day_idx = step_idx // steps_per_day
                 if day_idx < horizon_days:
-                    for sid in trajectories:
-                        trajectories[sid][run_idx, day_idx] = sim_state.storage[sid].level
+                    for sid, traj in trajectories.items():
+                        traj[run_idx, day_idx] = sim_state.storage[sid].level
 
     # --- Compute statistics ---
     consumable_forecasts = {}
@@ -215,9 +214,9 @@ def run_forecast(
         p90 = float(np.percentile(days_for_stats, 10))
 
         # If percentile is large, cap it at start_cum + horizon_days for display
-        if p10 > start_cum + horizon_days: p10 = start_cum + horizon_days
-        if p50 > start_cum + horizon_days: p50 = start_cum + horizon_days
-        if p90 > start_cum + horizon_days: p90 = start_cum + horizon_days
+        p10 = min(p10, start_cum + horizon_days)
+        p50 = min(p50, start_cum + horizon_days)
+        p90 = min(p90, start_cum + horizon_days)
 
         # Determine commodity and units
         commodity = "fuel" if sid in fuel_ids else "water" if sid in water_ids else "food"

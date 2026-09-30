@@ -1,17 +1,11 @@
 """Phase 2 tests: forecast, alerts, resupply coupling, cold-snap scenario."""
 
-from pathlib import Path
-import numpy as np
 
-from antarctic_twin.config import load_params, load_station
+from antarctic_twin.alerts import AlertCategory, AlertSeverity, derive_alerts
 from antarctic_twin.asset_graph import AssetGraph
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.engine import SimulationEngine
 from antarctic_twin.forecast import run_forecast
-from antarctic_twin.alerts import derive_alerts, AlertSeverity, AlertCategory
-from antarctic_twin.state import initialize_state
-from antarctic_twin.types import AssetType
-
-
 from tests.conftest import REPO_ROOT as BASE
 
 
@@ -83,7 +77,7 @@ def test_forecast_margin_days():
                       n_runs=20, horizon_days=120, dt_hours=6.0,
                       resupply_day=350.0)
 
-    for sid, cf in fc.consumables.items():
+    for cf in fc.consumables.values():
         assert abs(cf.margin_p50 - (cf.p50_days - 350.0)) < 0.01
 
 
@@ -93,7 +87,7 @@ def test_forecast_margin_days():
 
 def test_alerts_from_degraded_state():
     """Should produce equipment alerts when generators are degraded."""
-    result, graph, cfg, params = _setup(days=300)
+    result, graph, _cfg, params = _setup(days=300)
     state = result.final_state
 
     # Manually degrade gen1 to guarantee an equipment alert
@@ -110,7 +104,7 @@ def test_alerts_from_degraded_state():
 
 def test_alert_has_required_fields():
     """Every alert should have all required fields populated."""
-    result, graph, cfg, params = _setup(days=200)
+    result, graph, _cfg, params = _setup(days=200)
     state = result.final_state
 
     alerts = derive_alerts(state, graph, params)
@@ -127,7 +121,7 @@ def test_alert_has_required_fields():
 
 def test_alerts_sorted_by_severity():
     """Alerts should be sorted RED first, then AMBER, then GREEN."""
-    result, graph, cfg, params = _setup(days=300)
+    result, graph, _cfg, params = _setup(days=300)
     state = result.final_state
 
     alerts = derive_alerts(state, graph, params)
@@ -139,7 +133,7 @@ def test_alerts_sorted_by_severity():
 
 def test_resupply_delay_raises_logistics_alert():
     """Delaying resupply should produce a logistics alert."""
-    result, graph, cfg, params = _setup(days=100)
+    result, graph, _cfg, params = _setup(days=100)
     state = result.history[100 * 24]
 
     alerts = derive_alerts(state, graph, params, resupply_delay_days=45)
@@ -152,7 +146,7 @@ def test_resupply_delay_raises_logistics_alert():
 
 def test_alert_acknowledgement():
     """Alerts should be acknowledgeable."""
-    result, graph, cfg, params = _setup(days=200)
+    result, graph, _cfg, params = _setup(days=200)
     state = result.final_state
 
     alerts = derive_alerts(state, graph, params)
@@ -225,7 +219,7 @@ def test_cold_snap_produces_red_alert_with_fuel_quantity():
     assert fuel_alert.extra_quantity > 0, "extra_quantity should be positive"
     assert fuel_alert.extra_quantity_unit == "L", "extra_quantity should be in litres"
 
-    print(f"\nCOLD-SNAP ALERT:")
+    print("\nCOLD-SNAP ALERT:")
     print(f"  Severity: {fuel_alert.severity}")
     print(f"  Cause: {fuel_alert.cause}")
     print(f"  Evidence: {fuel_alert.evidence}")

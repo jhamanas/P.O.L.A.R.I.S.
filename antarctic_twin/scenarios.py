@@ -16,17 +16,16 @@ from __future__ import annotations
 
 import copy
 from dataclasses import dataclass, field
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from .config import load_station, load_params, param_value
+from .alerts import Alert, derive_alerts
 from .asset_graph import AssetGraph
+from .config import load_params, load_station, param_value
 from .engine import SimulationEngine, SimulationResult
-from .forecast import run_forecast, ForecastResult
-from .alerts import derive_alerts, Alert
-
+from .forecast import ForecastResult, run_forecast
 
 # ---------------------------------------------------------------------------
 # Scenario spec
@@ -560,7 +559,7 @@ def run_backtest(
     ])
     summer_heat = np.mean([
         result.history[h].total_heating_demand_kw
-        for h in range(0, min(60 * 24, len(result.history)))
+        for h in range(min(60 * 24, len(result.history)))
     ])
     checks.append(BacktestCheck(
         name="Seasonal heating pattern",

@@ -1,10 +1,8 @@
 """Tests for config loading and validation."""
 
-from pathlib import Path
 import pytest
+
 from antarctic_twin.config import load_params, load_station, param_value
-
-
 from tests.conftest import REPO_ROOT as BASE
 
 

@@ -1,6 +1,7 @@
 """Shared types, enums and data structures for the Antarctic Station Digital Twin."""
 
 from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 

@@ -1,10 +1,7 @@
 """Tests for deterministic replay: same seed → identical results."""
 
-from pathlib import Path
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.engine import SimulationEngine
-from antarctic_twin.config import load_station, load_params
-
-
 from tests.conftest import REPO_ROOT as BASE
 
 

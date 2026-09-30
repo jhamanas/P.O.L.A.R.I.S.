@@ -11,10 +11,10 @@ Provides:
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -78,7 +78,7 @@ class AuditLogger:
 
     def log_action(self, user: User, action: str, details: str) -> None:
         """Record an action in the audit log."""
-        ts = datetime.now().isoformat(sep=" ", timespec="seconds")
+        ts = datetime.now(timezone.utc).isoformat(sep=" ", timespec="seconds")
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 "INSERT INTO audit_log (timestamp, username, role, action, details) "

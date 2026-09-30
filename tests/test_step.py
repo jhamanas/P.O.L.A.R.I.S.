@@ -1,12 +1,9 @@
 """Tests for the step contract and physical invariants."""
 
-from pathlib import Path
-from antarctic_twin.config import load_params, load_station, param_value
 from antarctic_twin.asset_graph import AssetGraph
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.state import initialize_state, step
 from antarctic_twin.weather import WeatherGenerator
-
-
 from tests.conftest import REPO_ROOT as BASE
 
 
@@ -31,11 +28,11 @@ def test_step_does_not_mutate_input():
     state, graph, params, weather = _setup()
     env = weather.get_weather(0.0)
     original_time = state.time_hours
-    original_fuel = list(state.storage.values())[0].level if state.storage else None
+    original_fuel = next(iter(state.storage.values())).level if state.storage else None
     _ = step(state, env, 1.0, graph, params)
     assert state.time_hours == original_time
     if original_fuel is not None:
-        assert list(state.storage.values())[0].level == original_fuel
+        assert next(iter(state.storage.values())).level == original_fuel
 
 
 def test_fuel_decreases():

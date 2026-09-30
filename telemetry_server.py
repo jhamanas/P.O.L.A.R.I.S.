@@ -11,13 +11,16 @@ Endpoints:
 import asyncio
 import json
 import math
-import time
 import random
-import uvicorn
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-from antarctic_twin.config import load_station, load_params, param_value
+import time
 from pathlib import Path
+
+import uvicorn
+import yaml
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+
+from antarctic_twin.config import load_params, load_station
 
 app = FastAPI(title="Antarctic Station Telemetry Mock")
 
@@ -41,7 +44,7 @@ try:
     winter_temp = station_cfg["weather"]["winter_temp_avg"]["value"]  # -20
     summer_temp = station_cfg["weather"]["summer_temp_avg"]["value"]  # 0
     avg_wind = station_cfg["weather"]["avg_wind"]["value"]
-except Exception:
+except (OSError, KeyError, TypeError, ValueError, yaml.YAMLError):
     generators = []
     params = {}
     winter_temp, summer_temp, avg_wind = -20.0, 0.0, 7.0
@@ -59,8 +62,10 @@ def _build_frame(sim_time: int) -> dict:
     day_of_year = (sim_time // 24) % 365
     # Sinusoidal season: coldest at day ~182 (July), warmest at day ~0 (Jan)
     season_factor = -math.cos(2 * math.pi * day_of_year / 365)
-    base_temp = (summer_temp + winter_temp) / 2 + \
-                (summer_temp - winter_temp) / 2 * season_factor
+    base_temp = (
+        (summer_temp + winter_temp) / 2 +
+        (summer_temp - winter_temp) / 2 * season_factor
+    )
     temp = base_temp + random.gauss(0, 2.5)
 
     wind = max(0, avg_wind + random.gauss(0, 3.0))
@@ -124,8 +129,10 @@ async def websocket_endpoint(websocket: WebSocket):
             _sim_time += 1
             await websocket.send_text(json.dumps(frame))
             await asyncio.sleep(2)
-    except Exception as e:
-        print(f"[telemetry] Connection closed: {e}")
+    except WebSocketDisconnect:
+        print("[telemetry] Dashboard disconnected.")
+    except (ConnectionError, RuntimeError) as exc:
+        print(f"[telemetry] Connection closed: {exc}")
 
 
 # ---------------------------------------------------------------------------

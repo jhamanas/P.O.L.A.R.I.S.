@@ -20,19 +20,18 @@ Phase 1 implements:
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any
-import copy
-import math
 
-from .types import AssetType, Environment
 from .asset_graph import AssetGraph
 from .config import param_value
 from .energy import (
-    dispatch_energy, update_condition, check_fault,
-    EnergyDispatchResult,
+    check_fault,
+    dispatch_energy,
+    update_condition,
 )
-
+from .types import AssetType, Environment
 
 # ---------------------------------------------------------------------------
 # State dataclasses
@@ -89,7 +88,7 @@ class StationState:
     unmet_demand_kw: float = 0.0
     total_fuel_consumed_l: float = 0.0
 
-    def copy(self) -> "StationState":
+    def copy(self) -> StationState:
         """Deep copy so mutations don't affect the original."""
         return copy.deepcopy(self)
 
@@ -251,10 +250,9 @@ def step(state: StationState, env: Environment, dt: float,
             )
             
         # Repair mechanism (roughly 24 hours MTTR)
-        elif gs.faulted and not gs.permanent_fault and fault_rng_values and gen_asset.id in fault_rng_values:
+        elif gs.faulted and not gs.permanent_fault and fault_rng_values and gen_asset.id in fault_rng_values and fault_rng_values[gen_asset.id] < (dt / 24.0):
             # 1 / 24 chance of repair per hour
-            if fault_rng_values[gen_asset.id] < (dt / 24.0):
-                gs.faulted = False
+            gs.faulted = False
 
     # ---- 4. Energy dispatch (renewables → battery → generators) ----
     dispatch = dispatch_energy(

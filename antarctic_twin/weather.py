@@ -10,11 +10,12 @@ Produces deterministic (seeded) weather with:
 
 from __future__ import annotations
 
-import numpy as np
 from typing import Any
 
-from .types import Environment
+import numpy as np
+
 from .config import param_value
+from .types import Environment
 
 
 class WeatherGenerator:

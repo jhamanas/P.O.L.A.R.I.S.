@@ -20,15 +20,15 @@ Alerts are derived from:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from .state import StationState
 from .asset_graph import AssetGraph
 from .config import param_value
+from .forecast import ForecastResult
+from .state import StationState
 from .types import AssetType
-from .forecast import ForecastResult, ConsumableForecast
 
 
 class AlertSeverity(str, Enum):
