@@ -27,11 +27,13 @@ python -m pytest tests/ -v
 | Feature | Description |
 |---|---|
 | **Lumped-RC Thermal Model** | Implicit Euler integration for zone temperatures with priority-based heating (living > lab > workshop) |
+| **3D Spatial Model** | Live interactive 3D map (pydeck) rendering station zones extruded by heating demand and colored by thermal stress |
+| **Real-Time Telemetry** | Standalone WebSocket/REST mock server streaming synthetic live sensor data, ready for real hardware integration |
 | **Energy Dispatch** | Merit-order generator dispatch, wind turbine (cubic power curve), solar array, battery storage with DOD limits |
+| **Predictive Maintenance** | Equipment wear-and-tear increases dynamically under high load (MTBF scaling), triggering pre-emptive warnings |
 | **Consumable Tracking** | Fuel (load-dependent burn curve), water (snow-melt coupling), food depletion |
-| **Equipment Health** | Condition score degrading with running hours, Poisson fault injection, capacity reduction on faulted generators |
 | **Monte Carlo Forecast** | 500 runs with different weather seeds producing P10/P50/P90 exhaustion dates and fan charts |
-| **Alert Engine** | 6 categories (consumable, equipment, thermal, power, logistics, weather) with cause/evidence/consequence/action |
+| **Actionable Workflows** | Alerts feature interactive "Acknowledge" and "Dismiss" dispatch buttons with automatic audit logging |
 | **Scenario Presets** | Cold Snap, Prolonged Blizzard, Delayed Resupply, Generator Failure, Crew Surge, Combined Winter Isolation |
 | **Sensitivity Analysis** | Tornado chart varying 6 parameters ±20% to identify dominant risk factors |
 | **Calibration Backtest** | 8 physical plausibility checks run against both stations |
@@ -43,14 +45,15 @@ python -m pytest tests/ -v
 ## Architecture
 
 ```
-app.py                          Streamlit dashboard (8 tabs)
+app.py                          Streamlit dashboard (9 tabs)
+telemetry_server.py             FastAPI server mocking live MoES sensor feeds (WebSocket + REST)
 antarctic_twin/
   types.py                      Shared enums and dataclasses
   config.py                     YAML loading and validation
   weather.py                    Synthetic weather generator (AR(1) + storms)
   asset_graph.py                Asset graph with stable IDs
   state.py                      Station state and step() contract
-  energy.py                     Renewables, battery, generator dispatch
+  energy.py                     Renewables, battery, generator dispatch, dynamic wear model
   engine.py                     Simulation engine (wires weather + step loop)
   forecast.py                   Monte Carlo forecaster
   alerts.py                     Alert engine (6 categories)
@@ -61,7 +64,7 @@ stations/
   bharati.yaml                  Bharati station configuration
   maitri.yaml                   Maitri station configuration
 params.yaml                     Global parameters with source citations
-tests/                          70 tests across 7 test files
+tests/                          73 tests across 8 test files
 ```
 
 ---
@@ -71,11 +74,12 @@ tests/                          70 tests across 7 test files
 1. **Overview** — Consumable levels, zone temperatures, margin days, alert summary
 2. **Forecast** — Monte Carlo fan chart with P10/P50/P90 bands and resupply deadline
 3. **Energy** — Generation mix, battery SOC, heating demand vs waste heat, generator status
-4. **Station Plan** — SVG layout with zones coloured by thermal status
-5. **Alerts** — Expandable alert cards with cause, evidence, consequence, recommended action
-6. **Scenarios** — Preset selector with baseline vs scenario diff and fuel comparison
-7. **Validation** — Sensitivity tornado chart and calibration backtest
-8. **Provenance & Audit** — Parameter source citations, audit log, system info
+4. **Station Plan** — 3D spatial map (pydeck) with extruded zones, plus a collapsible 2D layout
+5. **Live Telemetry** — Real-time sensor feed polled from `telemetry_server.py`
+6. **Alerts** — Actionable alert cards (Acknowledge / Dismiss workflows)
+7. **Scenarios** — Preset selector with baseline vs scenario diff and fuel comparison
+8. **Validation** — Sensitivity tornado chart and calibration backtest
+9. **Provenance & Audit** — Parameter source citations, audit log, system info
 
 ---
 
