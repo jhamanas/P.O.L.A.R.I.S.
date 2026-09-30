@@ -118,6 +118,38 @@ with st.sidebar:
         st.caption("Your role does not have permission to run simulations.")
 
 # ---------------------------------------------------------------------------
+# Caching Wrappers
+# ---------------------------------------------------------------------------
+@st.cache_data(show_spinner=False, max_entries=5)
+def run_cached_simulation(config_dict: dict, params_dict: dict, gen_fault: str, days: int) -> tuple[Any, Any]:
+    # We recreate the engine here since we can't cache the engine object easily
+    engine = SimulationEngine(config_dict, params_dict, seed=42)
+    
+    if gen_fault != "None":
+        gen_num = int(gen_fault.split()[-1])
+        station_name = config_dict["name"].lower()
+        gen_id = f"{station_name}.gen{gen_num}"
+        if gen_id in engine.initial_state.generators:
+            engine.initial_state.generators[gen_id].faulted = True
+            engine.initial_state.generators[gen_id].permanent_fault = True
+            engine.initial_state.generators[gen_id].fault_capacity_reduction = 0.5
+            
+    result = engine.run(days=days)
+    return result, engine.graph
+
+
+@st.cache_data(show_spinner=False, max_entries=5)
+def run_cached_forecast(_mid_state: Any, _graph: Any, config_dict: dict, params_dict: dict, 
+                        forecast_runs: int, horizon: int, dt_hours: float, resupply_day: float) -> Any:
+    return run_forecast(
+        _mid_state, _graph, config_dict, params_dict,
+        n_runs=forecast_runs,
+        horizon_days=horizon,
+        dt_hours=dt_hours,
+        resupply_day=resupply_day,
+    )
+
+# ---------------------------------------------------------------------------
 # Header
 # ---------------------------------------------------------------------------
 col_title, col_badge = st.columns([5, 1])
@@ -162,37 +194,23 @@ if run_btn:
     )
     modified_config = fork_scenario(station_config, params, custom_scenario)
 
-    engine = SimulationEngine(modified_config, params, seed=42)
-
-    # Inject generator fault if requested
-    if gen_fault != "None":
-        gen_num = int(gen_fault.split()[-1])
-        gen_id = f"{station_name}.gen{gen_num}"
-        if gen_id in engine.initial_state.generators:
-            engine.initial_state.generators[gen_id].faulted = True
-            engine.initial_state.generators[gen_id].fault_capacity_reduction = 0.5
-
     with st.spinner("Running simulation..."):
-        result = engine.run(days=sim_days)
+        result, graph = run_cached_simulation(modified_config, params, gen_fault, sim_days)
 
     # Run forecast from midpoint
-    graph = AssetGraph(modified_config)
     mid_day = min(sim_days // 2, 150)
     mid_state = result.history[mid_day * 24]
     resupply_day = param_value(params, "resupply_default_day")
 
     with st.spinner("Running Monte Carlo forecast..."):
-        forecast = run_forecast(
+        forecast = run_cached_forecast(
             mid_state, graph, modified_config, params,
-            n_runs=forecast_runs,
-            horizon_days=min(sim_days - mid_day, 250),
-            dt_hours=6.0,
-            resupply_day=resupply_day + resupply_delay,
+            forecast_runs, min(sim_days - mid_day, 250), 6.0, resupply_day + resupply_delay
         )
 
-    # Derive alerts
+    # Derive alerts using the state at mid_day
     alerts = derive_alerts(
-        result.final_state, graph, params,
+        mid_state, graph, params,
         forecast=forecast,
         resupply_day=resupply_day,
         resupply_delay_days=resupply_delay,
@@ -827,9 +845,12 @@ with tab_alerts:
 
                 # --- Remote Management Workflow ---
                 if not alert.acknowledged:
+                    can_ack = check_permission(st.session_state.user, "acknowledge_alert")
+                    if not can_ack:
+                        st.caption("You do not have permission to acknowledge or dismiss alerts.")
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("Acknowledge & Assign", key=f"ack_{alert.id}"):
+                        if st.button("Acknowledge & Assign", key=f"ack_{alert.id}", disabled=not can_ack):
                             alert.acknowledge()
                             audit_logger.log_action(
                                 st.session_state.user,
@@ -838,7 +859,7 @@ with tab_alerts:
                             )
                             st.rerun()
                     with col2:
-                        if st.button("Dismiss (False Positive)", key=f"ign_{alert.id}"):
+                        if st.button("Dismiss (False Positive)", key=f"ign_{alert.id}", disabled=not can_ack):
                             alert.acknowledge()
                             audit_logger.log_action(
                                 st.session_state.user,
@@ -894,7 +915,11 @@ with tab_scenarios:
         for k, v in diff.items():
             st.markdown(f"- **{k}:** {v}")
 
-    if st.button("Run Scenario Comparison", type="primary"):
+    can_run_sc = check_permission(st.session_state.user, "run_scenario")
+    if not can_run_sc:
+        st.caption("You do not have permission to run scenarios.")
+
+    if st.button("Run Scenario Comparison", type="primary", disabled=not can_run_sc):
         station_file = BASE / "stations" / f"{station_name}.yaml"
         params_file = BASE / "params.yaml"
 
@@ -977,7 +1002,11 @@ with tab_validation:
         st.subheader("Sensitivity Tornado Chart")
         st.caption("Each parameter varied +/-20%. Impact measured as change in fuel exhaustion day.")
 
-        if st.button("Run Sensitivity Analysis", key="sensitivity_btn"):
+        can_run_sens = check_permission(st.session_state.user, "run_sensitivity")
+        if not can_run_sens:
+            st.caption("You do not have permission to run sensitivity analysis.")
+            
+        if st.button("Run Sensitivity Analysis", key="sensitivity_btn", disabled=not can_run_sens):
             station_file = BASE / "stations" / f"{station_name}.yaml"
             params_file = BASE / "params.yaml"
 
@@ -1034,7 +1063,11 @@ with tab_validation:
         st.subheader("Calibration Backtest")
         st.caption("Checks that model outputs fall within defensible physical bounds.")
 
-        if st.button("Run Backtest", key="backtest_btn"):
+        can_run_bt = check_permission(st.session_state.user, "run_backtest")
+        if not can_run_bt:
+            st.caption("You do not have permission to run the calibration backtest.")
+
+        if st.button("Run Backtest", key="backtest_btn", disabled=not can_run_bt):
             station_file = BASE / "stations" / f"{station_name}.yaml"
             params_file = BASE / "params.yaml"
 

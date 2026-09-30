@@ -1,152 +1,87 @@
-# ============================================================
-# Global Physical & Operational Parameters
-# Every entry: value, unit, source (citation or "assumption")
-# ============================================================
-
-# --- Fuel ---
-diesel_density:
-  value: 850.0
-  unit: "kg/m3"
-  source: "ISO 8217:2017 DMA marine diesel"
-
-diesel_energy_density:
-  value: 38.6
-  unit: "MJ/L"
-  source: "Engineering Toolbox – Diesel Fuel Properties"
-
 generator_efficiency:
   value: 0.35
-  unit: "dimensionless"
-  source: "Typical medium-speed diesel genset, Wartsila tech review 2019"
-
+  unit: dimensionless
+  source: Typical medium-speed diesel genset, Wartsila tech review 2019
 generator_waste_heat_recovery:
-  value: 0.40
-  unit: "dimensionless"
-  source: "assumption – fraction of rejected heat captured for space heating"
-
-# --- Water ---
+  value: 0.4
+  unit: dimensionless
+  source: "assumption \xE2\u20AC\u201C fraction of rejected heat captured for space\
+    \ heating"
 water_consumption_per_capita:
   value: 100.0
-  unit: "L/day"
-  source: "NCAOR Antarctic Expedition Logistics Manual, 40th ISEA report"
-
+  unit: L/day
+  source: NCAOR Antarctic Expedition Logistics Manual, 40th ISEA report
 snow_melt_energy:
   value: 334.0
-  unit: "kJ/kg"
-  source: "Latent heat of fusion for ice, CRC Handbook of Chemistry and Physics"
-
+  unit: kJ/kg
+  source: Latent heat of fusion for ice, CRC Handbook of Chemistry and Physics
 snow_melt_rate_base:
   value: 2000.0
-  unit: "L/day"
-  source: "assumption – station snow-melt plant nominal capacity, sized to exceed crew demand"
-
-# --- Food ---
+  unit: L/day
+  source: "assumption \xE2\u20AC\u201C station snow-melt plant nominal capacity, sized\
+    \ to exceed crew demand"
 food_consumption_per_capita:
   value: 2.5
-  unit: "kg/day"
-  source: "USAP/NSF Antarctic logistics food planning estimates"
-
-# --- Thermal ---
+  unit: kg/day
+  source: USAP/NSF Antarctic logistics food planning estimates
 specific_heat_air:
   value: 1006.0
-  unit: "J/(kg·K)"
-  source: "Standard atmosphere, ISA"
-
+  unit: "J/(kg\xC2\xB7K)"
+  source: Standard atmosphere, ISA
 air_density:
   value: 1.225
-  unit: "kg/m3"
-  source: "ISA sea-level standard (adjusted negligibly for Antarctic pressure)"
-
+  unit: kg/m3
+  source: ISA sea-level standard (adjusted negligibly for Antarctic pressure)
 wind_ua_coefficient:
   value: 0.05
-  unit: "W/(m2·K·(m/s))"
-  source: "assumption – additional UA per unit wind speed per unit envelope area, well-sealed Antarctic building"
-
-indoor_target_temp:
-  value: 20.0
-  unit: "°C"
-  source: "NCAOR station habitability standard"
-
-# --- Resupply ---
-resupply_default_day:
-  value: 350
-  unit: "day_of_year"
-  source: "assumption – mid-December, typical ship arrival window"
-
-resupply_window_days:
-  value: 60
-  unit: "days"
-  source: "assumption – December through February navigable window"
-
-# --- Simulation ---
-default_timestep:
-  value: 1.0
-  unit: "hours"
-  source: "assumption – 1-hour resolution balances accuracy and speed"
-
-default_seed:
-  value: 42
-  unit: "dimensionless"
-  source: "arbitrary – for reproducible demos"
-
+  unit: "W/(m2\xC2\xB7K\xC2\xB7(m/s))"
+  source: "assumption \xE2\u20AC\u201C additional UA per unit wind speed per unit\
+    \ envelope area, well-sealed Antarctic building"
 resupply_default_day:
   value: 350.0
-  unit: "day_of_year"
-  source: "assumption – Indian Antarctic Expedition typically arrives mid-December (day ~350)"
-
-# --- Weather (defaults, overridden per station) ---
+  unit: day_of_year
+  source: "assumption \xE2\u20AC\u201C Indian Antarctic Expedition typically arrives\
+    \ mid-December (day ~350)"
 weather_ar1_temp_rho:
   value: 0.95
-  unit: "dimensionless"
-  source: "assumption – strong day-to-day autocorrelation in Antarctic temperature"
-
+  unit: dimensionless
+  source: "assumption \xE2\u20AC\u201C strong day-to-day autocorrelation in Antarctic\
+    \ temperature"
 weather_ar1_temp_sigma:
   value: 2.0
-  unit: "°C"
-  source: "assumption – innovation std dev for temperature noise"
-
+  unit: "\xC2\xB0C"
+  source: "assumption \xE2\u20AC\u201C innovation std dev for temperature noise"
 weather_ar1_wind_rho:
-  value: 0.90
-  unit: "dimensionless"
-  source: "assumption – wind autocorrelation"
-
+  value: 0.9
+  unit: dimensionless
+  source: "assumption \xE2\u20AC\u201C wind autocorrelation"
 weather_ar1_wind_sigma:
   value: 3.0
-  unit: "m/s"
-  source: "assumption – innovation std dev for wind noise"
-
+  unit: m/s
+  source: "assumption \xE2\u20AC\u201C innovation std dev for wind noise"
 weather_storm_prob_per_hour:
   value: 0.005
-  unit: "1/hour"
-  source: "assumption – Poisson arrival, ~1 storm every 8 days"
-
+  unit: 1/hour
+  source: "assumption \xE2\u20AC\u201C Poisson arrival, ~1 storm every 8 days"
 weather_storm_temp_drop:
   value: 8.0
-  unit: "°C"
-  source: "assumption – temperature depression during katabatic storm events"
-
+  unit: "\xC2\xB0C"
+  source: "assumption \xE2\u20AC\u201C temperature depression during katabatic storm\
+    \ events"
 weather_storm_wind_boost:
   value: 25.0
-  unit: "m/s"
-  source: "assumption – additional wind during storm"
-
+  unit: m/s
+  source: "assumption \xE2\u20AC\u201C additional wind during storm"
 weather_storm_min_duration:
   value: 6.0
-  unit: "hours"
-  source: "assumption – minimum storm event length"
-
-# --- Equipment condition ---
+  unit: hours
+  source: "assumption \xE2\u20AC\u201C minimum storm event length"
 generator_mtbf_hours:
   value: 5000.0
-  unit: "hours"
-  source: "assumption – mean time between failures for medium-speed diesel gensets"
-
+  unit: hours
+  source: "assumption \xE2\u20AC\u201C mean time between failures for medium-speed\
+    \ diesel gensets"
 generator_fault_rate:
   value: 0.0001
-  unit: "1/hour"
-  source: "assumption – base fault probability per hour at condition=1.0"
-
-fault_capacity_reduction:
-  value: 0.50
-  unit: "dimensionless"
-  source: "assumption – faulted generator operates at 50% capacity until repaired"
+  unit: 1/hour
+  source: "assumption \xE2\u20AC\u201C base fault probability per hour at condition=1.0"

@@ -57,17 +57,6 @@ class SimulationEngine:
         self.seed = seed
         self.graph = AssetGraph(station_config)
 
-        # Weather generator (seeded)
-        self.weather = WeatherGenerator(
-            station_weather=station_config["weather"],
-            params=params_config,
-            seed=seed,
-        )
-
-        # Separate RNG stream for fault injection — independent of weather
-        # so adding/removing generators doesn't change the weather sequence
-        self.fault_rng = np.random.default_rng(seed + 1_000_000)
-
         # Initialize state
         crew = station_config["crew"]["winter"]
         self.initial_state = initialize_state(self.graph, crew)
@@ -86,6 +75,14 @@ class SimulationEngine:
         Returns:
             SimulationResult with full state and weather history.
         """
+        # Re-initialize RNGs to ensure run() is deterministic and repeatable
+        self.weather = WeatherGenerator(
+            station_weather=self.station_config["weather"],
+            params=self.params,
+            seed=self.seed,
+        )
+        self.fault_rng = np.random.default_rng(self.seed + 1_000_000)
+        
         state = self.initial_state.copy()
         history: list[StationState] = [state]
         weather_history: list[Environment] = []
@@ -94,9 +91,15 @@ class SimulationEngine:
         total_steps = int(days * 24 / dt_hours)
 
         # Crew switching: read summer/winter counts from config
-        crew_cfg = self.station_config["crew"]
-        summer_crew = crew_cfg.get("summer", crew_cfg["winter"])
-        winter_crew = crew_cfg["winter"]
+        crew_cfg = self.station_config.get("crew", {})
+        summer_crew = crew_cfg.get("summer", crew_cfg.get("winter", 15))
+        winter_crew = crew_cfg.get("winter", 15)
+
+        # Resupply day
+        from .config import param_value
+        resupply_cfg = self.station_config.get("resupply", {})
+        resupply_day = resupply_cfg.get("nominal_day", param_value(self.params, "resupply_default_day"))
+        last_day_of_year = (state.time_hours / 24.0) % 365.25
 
         for i in range(total_steps):
             day_of_year = (state.time_hours / 24.0) % 365.25
@@ -107,6 +110,28 @@ class SimulationEngine:
             if state.crew_count != target_crew:
                 state = state.copy()
                 state.crew_count = target_crew
+
+            # Apply resupply if we just crossed the resupply day
+            # This logic works whether resupply_day is crossed normally or wrapped around
+            crossed_resupply = (last_day_of_year < resupply_day <= day_of_year) or \
+                               (last_day_of_year > day_of_year and (last_day_of_year < resupply_day or resupply_day <= day_of_year))
+            
+            if crossed_resupply:
+                state = state.copy()
+                # Refill all storage assets (fuel, water, food) to their initial level / capacity
+                for asset in self.graph.get_by_type(AssetType.STORAGE):
+                    if asset.id in state.storage:
+                        # Resupply to capacity (or initial_level if defined)
+                        target_level = asset.params.get("initial_level_l", asset.params.get("capacity_l", 0.0))
+                        # For food (kg)
+                        if "initial_level_kg" in asset.params:
+                            target_level = asset.params["initial_level_kg"]
+                        elif "capacity_kg" in asset.params:
+                            target_level = asset.params["capacity_kg"]
+                            
+                        state.storage[asset.id].level = target_level
+                        
+            last_day_of_year = day_of_year
 
             # Generate weather
             env = self.weather.get_weather(day_of_year, dt_hours)

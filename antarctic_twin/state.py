@@ -55,6 +55,7 @@ class GeneratorState:
     condition: float = 1.0              # 1.0 = perfect, 0.0 = dead
     faulted: bool = False               # active fault flag
     fault_capacity_reduction: float = 0.5  # fraction of capacity lost when faulted
+    permanent_fault: bool = False       # scenario-injected permanent fault
 
 @dataclass
 class StorageState:
@@ -86,8 +87,9 @@ class StationState:
     waste_heat_kw: float = 0.0
     snow_melt_production_l: float = 0.0
     unmet_demand_kw: float = 0.0
+    total_fuel_consumed_l: float = 0.0
 
-    def copy(self) -> StationState:
+    def copy(self) -> "StationState":
         """Deep copy so mutations don't affect the original."""
         return copy.deepcopy(self)
 
@@ -161,24 +163,16 @@ def step(state: StationState, env: Environment, dt: float,
     s.time_hours += dt
     dt_seconds = dt * 3600.0
 
-    # ---- Lookup heating equipment capacity ----
-    heating_cap_kw = 80.0
-    for eq in graph.get_by_type(AssetType.EQUIPMENT):
-        if "heating" in eq.id:
-            heating_cap_kw = eq.params.get("capacity_kw", 80.0)
-    heating_cap_w = heating_cap_kw * 1000.0
-
-    # ---- 1. Thermal dynamics per zone (priority-based heating) ----
+    # ---- 1. Thermal dynamics: Calculate Demand ONLY ----
     wind_ua_coeff = param_value(params, "wind_ua_coefficient")
     rho = param_value(params, "air_density")
     cp = param_value(params, "specific_heat_air")
 
-    # Compute UA and demand per zone, then allocate heating by priority
     zone_thermal: list[dict[str, Any]] = []
     zones_sorted = sorted(graph.get_by_type(AssetType.ZONE),
                           key=lambda z: -z.params.get("target_temp", 0.0))
-    # Priority: highest target_temp first (living > lab > workshop)
 
+    total_heating_demand_w = 0.0
     for zone_asset in zones_sorted:
         p = zone_asset.params
         target_temp = p.get("target_temp", 20.0)
@@ -191,6 +185,7 @@ def step(state: StationState, env: Environment, dt: float,
         ua_total = ua_base + ua_wind
         thermal_mass = rho * volume * cp * 5.0
         demand_w = max(0.0, ua_total * (target_temp - env.temperature))
+        total_heating_demand_w += demand_w
 
         zone_thermal.append({
             "id": zone_asset.id,
@@ -199,53 +194,30 @@ def step(state: StationState, env: Environment, dt: float,
             "target_temp": target_temp,
             "demand_w": demand_w,
         })
-
-    # Allocate heating: priority zones get heating first, up to their demand
-    remaining_cap_w = heating_cap_w
-    total_heating_demand = 0.0
-    zone_heating_allocation: dict[str, float] = {}
-
-    for zt in zone_thermal:
-        allocated = min(zt["demand_w"], remaining_cap_w)
-        zone_heating_allocation[zt["id"]] = allocated
-        remaining_cap_w -= allocated
-        total_heating_demand += zt["demand_w"] / 1000.0
-
-    # Apply thermal dynamics with allocated heating
-    for zt in zone_thermal:
-        zs = s.zones[zt["id"]]
-        heating_w = zone_heating_allocation[zt["id"]]
-        ua = zt["ua_total"]
-        C = zt["thermal_mass"]
-
-        # Implicit Euler: T_new = (C·T_old + dt·(UA·T_amb + Q_heat)) / (C + dt·UA)
-        numerator = C * zs.temperature + dt_seconds * (ua * env.temperature + heating_w)
-        denominator = C + dt_seconds * ua
-        zs.temperature = numerator / denominator
-        zs.heating_kw = heating_w / 1000.0
-        zs.heating_demand_kw = zt["demand_w"] / 1000.0
-
-    s.total_heating_demand_kw = total_heating_demand
+    
+    total_heating_demand_kw = total_heating_demand_w / 1000.0
+    s.total_heating_demand_kw = total_heating_demand_kw
 
     # ---- 2. Compute electrical demand ----
     base_electrical_kw = 10.0 + 1.5 * s.crew_count
 
-    # Snow-melt energy
     snowmelt_kw = 0.0
+    boiler_cap_kw = 0.0
     for eq in graph.get_by_type(AssetType.EQUIPMENT):
         if "snowmelt" in eq.id:
             snowmelt_kw = eq.params.get("energy_kw", 10.0)
+        if "boiler" in eq.label.lower():
+            boiler_cap_kw = eq.params.get("capacity_kw", 0.0)
+            
     base_electrical_kw += snowmelt_kw
 
     gen_efficiency = param_value(params, "generator_efficiency")
     waste_heat_recovery = param_value(params, "generator_waste_heat_recovery")
 
-    # Estimate waste heat from running base load on generators
-    est_waste_heat_kw = (
-        base_electrical_kw / gen_efficiency * (1.0 - gen_efficiency) * waste_heat_recovery
-    )
-    # Heating shortfall that electric heaters must cover
-    heating_shortfall_kw = max(0.0, total_heating_demand - est_waste_heat_kw)
+    # Estimate waste heat to size the electric heating request
+    est_waste_heat_kw = (base_electrical_kw / gen_efficiency * (1.0 - gen_efficiency) * waste_heat_recovery)
+    
+    heating_shortfall_kw = max(0.0, total_heating_demand_kw - est_waste_heat_kw)
     electric_heating_kw = heating_shortfall_kw * 0.5  # 50% electric backup
     total_demand_kw = base_electrical_kw + electric_heating_kw
 
@@ -258,11 +230,17 @@ def step(state: StationState, env: Environment, dt: float,
         # Update condition based on previous timestep's load and duration
         gs.condition = update_condition(gs.condition, dt, gs.load_fraction, gen_mtbf)
 
-        # Check for new fault (only if not already faulted)
-        if not gs.faulted and fault_rng_values and gen_asset.id in fault_rng_values:
+        # Check for new fault (only if not already faulted and running)
+        if not gs.faulted and gs.running and fault_rng_values and gen_asset.id in fault_rng_values:
             gs.faulted = check_fault(
                 gs.condition, dt, fault_rng_values[gen_asset.id], base_fault_rate
             )
+            
+        # Repair mechanism (roughly 24 hours MTTR)
+        elif gs.faulted and not gs.permanent_fault and fault_rng_values and gen_asset.id in fault_rng_values:
+            # 1 / 24 chance of repair per hour
+            if fault_rng_values[gen_asset.id] < (dt / 24.0):
+                gs.faulted = False
 
     # ---- 4. Energy dispatch (renewables → battery → generators) ----
     dispatch = dispatch_energy(
@@ -295,10 +273,51 @@ def step(state: StationState, env: Environment, dt: float,
     s.waste_heat_kw = dispatch.waste_heat_kw
     s.unmet_demand_kw = dispatch.unmet_demand_kw
 
+    # ---- 4. Apply Thermal Dynamics with Actual Heat Supplied ----
+    # 1. Waste heat
+    actual_waste_heat_kw = dispatch.waste_heat_kw
+    
+    # 2. Electric heat (curtailed if unmet electrical demand)
+    actual_electric_heat_kw = max(0.0, electric_heating_kw - dispatch.unmet_demand_kw)
+    
+    total_supplied_heat_kw = actual_waste_heat_kw + actual_electric_heat_kw
+    
+    # 3. Boiler (if available and needed)
+    boiler_fuel_l = 0.0
+    if total_supplied_heat_kw < total_heating_demand_kw and boiler_cap_kw > 0:
+        boiler_kw_needed = min(total_heating_demand_kw - total_supplied_heat_kw, boiler_cap_kw)
+        total_supplied_heat_kw += boiler_kw_needed
+        # Diesel boiler efficiency ~85%, 1 L diesel = 10 kWh
+        # Fuel (L) = Energy (kWh) / (10 * 0.85)
+        boiler_fuel_l = (boiler_kw_needed * dt) / 8.5
+
+    remaining_cap_w = total_supplied_heat_kw * 1000.0
+    zone_heating_allocation: dict[str, float] = {}
+
+    for zt in zone_thermal:
+        allocated = min(zt["demand_w"], remaining_cap_w)
+        zone_heating_allocation[zt["id"]] = allocated
+        remaining_cap_w -= allocated
+
+    for zt in zone_thermal:
+        zs = s.zones[zt["id"]]
+        heating_w = zone_heating_allocation[zt["id"]]
+        ua = zt["ua_total"]
+        C = zt["thermal_mass"]
+
+        # Implicit Euler
+        numerator = C * zs.temperature + dt_seconds * (ua * env.temperature + heating_w)
+        denominator = C + dt_seconds * ua
+        zs.temperature = numerator / denominator
+        zs.heating_kw = heating_w / 1000.0
+        zs.heating_demand_kw = zt["demand_w"] / 1000.0
+
     # ---- 5. Fuel storage deduction ----
+    total_fuel_burn = dispatch.total_fuel_consumed_l + boiler_fuel_l
+    s.total_fuel_consumed_l += total_fuel_burn
     for store in graph.storage_by_commodity("fuel"):
         ss = s.storage[store.id]
-        ss.level = max(0.0, ss.level - dispatch.total_fuel_consumed_l)
+        ss.level = max(0.0, ss.level - total_fuel_burn)
 
     # ---- 6. Water: snow-melt coupled to available energy ----
     water_rate = param_value(params, "water_consumption_per_capita") / 24.0

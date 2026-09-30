@@ -10,8 +10,8 @@ from tests.conftest import REPO_ROOT as BASE
 
 def test_load_params():
     params = load_params(BASE / "params.yaml")
-    assert "diesel_energy_density" in params
-    assert param_value(params, "diesel_energy_density") == 38.6
+    assert "generator_efficiency" in params
+    assert param_value(params, "generator_efficiency") == 0.35
 
 
 def test_load_station_bharati():

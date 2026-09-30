@@ -32,7 +32,6 @@ class WeatherGenerator:
         self.winter_temp = param_value(station_weather, "winter_temp_avg")
         self.summer_temp = param_value(station_weather, "summer_temp_avg")
         self.avg_wind = param_value(station_weather, "avg_wind")
-        self.solar_peak = station_weather.get("solar_peak", {})
         self.solar_peak = (
             param_value(station_weather, "solar_peak")
             if "solar_peak" in station_weather
@@ -68,14 +67,17 @@ class WeatherGenerator:
         Returns:
             Frozen Environment snapshot.
         """
-        # --- AR(1) noise ---
+        # --- AR(1) noise (adjusted for dt_hours) ---
+        rho_temp_dt = self.temp_rho ** dt_hours
         self._temp_noise = (
-            self.temp_rho * self._temp_noise
-            + self.rng.normal(0, self.temp_sigma) * np.sqrt(1 - self.temp_rho ** 2)
+            rho_temp_dt * self._temp_noise
+            + self.rng.normal(0, self.temp_sigma) * np.sqrt(1 - rho_temp_dt ** 2)
         )
+        
+        rho_wind_dt = self.wind_rho ** dt_hours
         self._wind_noise = (
-            self.wind_rho * self._wind_noise
-            + self.rng.normal(0, self.wind_sigma) * np.sqrt(1 - self.wind_rho ** 2)
+            rho_wind_dt * self._wind_noise
+            + self.rng.normal(0, self.wind_sigma) * np.sqrt(1 - rho_wind_dt ** 2)
         )
 
         # --- Annual temperature cycle ---

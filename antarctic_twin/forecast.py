@@ -52,10 +52,12 @@ class ConsumableForecast:
     @property
     def fraction_exhausting_before_resupply(self) -> float:
         """Fraction of Monte Carlo runs where exhaustion occurs before resupply."""
-        valid = self.exhaustion_days[~np.isnan(self.exhaustion_days)]
-        if len(valid) == 0:
-            return 0.0
-        return float(np.mean(valid < self.resupply_day))
+        # np.nan means it never exhausted.
+        # We need to count runs that DID exhaust AND did so before resupply,
+        # divided by the TOTAL number of runs (len(self.exhaustion_days)).
+        exhausted = ~np.isnan(self.exhaustion_days)
+        exhausted_before = (self.exhaustion_days < self.resupply_day) & exhausted
+        return float(np.sum(exhausted_before) / len(self.exhaustion_days))
 
 
 @dataclass
@@ -157,10 +159,23 @@ def run_forecast(
         fault_rng = np.random.default_rng(seed + 2_000_000)
 
         exhausted = {sid: False for sid in all_consumable_ids}
+        
+        # Read crew config for scheduling
+        crew_cfg = station_config.get("crew", {})
+        summer_crew = crew_cfg.get("summer", crew_cfg.get("winter", 15))
+        winter_crew = crew_cfg.get("winter", 15)
 
         for step_idx in range(total_steps):
             # day_of_year for weather (must be mod-365 for seasonal patterns)
             day_of_year = (sim_state.time_hours / 24.0) % 365.25
+            
+            # Auto crew switch: Antarctic summer = Nov-Feb (days 0-60, 320-365)
+            is_summer = day_of_year < 60 or day_of_year >= 320
+            target_crew = summer_crew if is_summer else winter_crew
+            if sim_state.crew_count != target_crew:
+                sim_state = sim_state.copy()
+                sim_state.crew_count = target_crew
+                
             env = weather.get_weather(day_of_year, dt_hours)
 
             # Generate fault RNG values
@@ -190,17 +205,19 @@ def run_forecast(
 
     for sid in all_consumable_ids:
         days = exhaustion_days[sid]
-        valid = days[~np.isnan(days)]
+        days_for_stats = days.copy()
+        # Use a large finite number instead of np.inf, because np.percentile with inf returns nan
+        large_finite = start_cum + horizon_days + 1000.0
+        days_for_stats[np.isnan(days_for_stats)] = large_finite
 
-        if len(valid) > 0:
-            p10 = float(np.percentile(valid, 90))  # P10 = optimistic = later exhaustion
-            p50 = float(np.percentile(valid, 50))
-            p90 = float(np.percentile(valid, 10))  # P90 = pessimistic = earlier exhaustion
-        else:
-            # Doesn't exhaust within horizon
-            p10 = start_cum + horizon_days
-            p50 = start_cum + horizon_days
-            p90 = start_cum + horizon_days
+        p10 = float(np.percentile(days_for_stats, 90))
+        p50 = float(np.percentile(days_for_stats, 50))
+        p90 = float(np.percentile(days_for_stats, 10))
+
+        # If percentile is large, cap it at start_cum + horizon_days for display
+        if p10 > start_cum + horizon_days: p10 = start_cum + horizon_days
+        if p50 > start_cum + horizon_days: p50 = start_cum + horizon_days
+        if p90 > start_cum + horizon_days: p90 = start_cum + horizon_days
 
         # Determine commodity and units
         commodity = "fuel" if sid in fuel_ids else "water" if sid in water_ids else "food"
@@ -209,11 +226,15 @@ def run_forecast(
         # Current depletion rate (from first few MC runs, averaged)
         current_level = state.storage[sid].level
         if store_trajectories and sid in trajectories and n_runs > 0:
-            # Rate from day 0 to day 1
-            day0_levels = trajectories[sid][:, 0]
-            day1_levels = trajectories[sid][:, min(1, horizon_days - 1)]
-            avg_rate = float(np.mean(day0_levels - day1_levels))
-            depletion_rate = max(0.0, avg_rate)
+            # Average rate from now until resupply (or end of horizon if resupply > horizon)
+            target_day_idx = min(horizon_days - 1, int(resupply_cum - start_cum))
+            if target_day_idx > 0:
+                day0_levels = trajectories[sid][:, 0]
+                target_levels = trajectories[sid][:, target_day_idx]
+                avg_rate = float(np.mean(day0_levels - target_levels)) / target_day_idx
+                depletion_rate = max(0.0, avg_rate)
+            else:
+                depletion_rate = 0.0
         else:
             depletion_rate = 0.0
 

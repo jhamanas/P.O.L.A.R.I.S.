@@ -99,7 +99,7 @@ tests/                          73 tests across 8 test files
 ## Test Suite
 
 ```
-70 tests, 7 files, ~60 seconds
+70 tests, 8 files, ~60 seconds
 
 tests/test_config.py      5 tests   Config loading and validation
 tests/test_weather.py      5 tests   Weather generator determinism and bounds

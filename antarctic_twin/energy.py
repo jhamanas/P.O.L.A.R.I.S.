@@ -115,7 +115,7 @@ def battery_dispatch(soc: float, demand_kw: float, dt_hours: float,
 
     new_soc = max(0.0, min(capacity_kwh, new_soc))
 
-    return BatteryResult(soc=new_soc, power_kw=actual_power if demand_kw > 0 else actual_power,
+    return BatteryResult(soc=new_soc, power_kw=actual_power,
                          energy_kwh=actual_energy if demand_kw > 0 else -actual_energy)
 
 
@@ -285,25 +285,26 @@ def dispatch_energy(total_demand_kw: float, env: Environment, dt_hours: float,
     for g, cap, faulted, reduction in available_gens:
         if gen_demand <= 0:
             break
-        gens_to_run.append((g, faulted, reduction))
+        gens_to_run.append((g, cap, faulted, reduction))
         cumulative_cap += cap
         if cumulative_cap >= gen_demand:
             break
 
     # Always run at least 1 generator (station needs power for critical
     # systems like comms and life-support that aren't explicitly modeled).
-    # This is a no-op safeguard when gen_demand <= 0 (renewables cover
-    # the entire load); it does NOT force fuel burn when unneeded because
-    # dispatch_generator uses load-dependent fuel consumption — at zero
-    # load the generator burns only idle fuel.
+    # This safeguard ensures at least one generator is available for grid stability,
+    # even when renewables cover the entire load. Note that running at 0 kW demand
+    # still incurs a 10% minimum load fuel burn penalty (spinning reserve).
     if not gens_to_run and available_gens:
         g, cap, faulted, reduction = available_gens[0]
-        gens_to_run.append((g, faulted, reduction))
+        gens_to_run.append((g, cap, faulted, reduction))
         cumulative_cap = cap
 
-    # Distribute load equally among running generators
-    for g, faulted, reduction in gens_to_run:
-        share = gen_demand / max(1, len(gens_to_run))
+    # Distribute load proportionally among running generators based on their effective capacity
+    running_cap_total = sum(cap for (g, cap, faulted, reduction) in gens_to_run)
+    
+    for g, cap, faulted, reduction in gens_to_run:
+        share = gen_demand * (cap / running_cap_total) if running_cap_total > 0 else 0.0
         result = dispatch_generator(
             share, dt_hours, g, faulted, reduction,
             gen_efficiency, waste_heat_recovery

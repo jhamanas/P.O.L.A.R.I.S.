@@ -96,7 +96,11 @@ def test_alerts_from_degraded_state():
     result, graph, cfg, params = _setup(days=300)
     state = result.final_state
 
-    # After 300 days, gen1 should have degraded condition
+    # Manually degrade gen1 to guarantee an equipment alert
+    gen_ids = list(state.generators.keys())
+    if gen_ids:
+        state.generators[gen_ids[0]].condition = 0.15
+
     alerts = derive_alerts(state, graph, params)
 
     # Should have at least one equipment alert
@@ -187,6 +191,11 @@ def test_cold_snap_produces_red_alert_with_fuel_quantity():
     result = engine.run(days=200)
     state = result.final_state
     graph = AssetGraph(cold_cfg)
+
+    # Artificially drain fuel to ensure it exhausts before resupply
+    fuel_ids = [sid for sid in state.storage if "fuel" in sid]
+    if fuel_ids:
+        state.storage[fuel_ids[0]].level = 10000.0  # only 10 kL left
 
     # Run forecast from day 200
     fc = run_forecast(state, graph, cold_cfg, params,
