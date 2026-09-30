@@ -206,17 +206,44 @@ def run_forecast(
         days = exhaustion_days[sid]
         days_for_stats = days.copy()
         # Use a large finite number instead of np.inf, because np.percentile with inf returns nan
-        large_finite = start_cum + horizon_days + 1000.0
-        days_for_stats[np.isnan(days_for_stats)] = large_finite
+                # Project non-exhausting runs beyond the forecast window using
+        # their observed depletion rate. This prevents the forecast
+        # horizon from appearing as a fake exhaustion date.
+        current_level = state.storage[sid].level
+
+        if store_trajectories and sid in trajectories and n_runs > 0:
+            target_day_idx = min(
+                horizon_days - 1,
+                max(1, int(resupply_cum - start_cum))
+            )
+
+            day0_levels = trajectories[sid][:, 0]
+            target_levels = trajectories[sid][:, target_day_idx]
+
+            run_rates = np.maximum(
+                0.0,
+                (day0_levels - target_levels) / target_day_idx
+            )
+
+            days_for_stats = days.copy()
+
+            for i in range(n_runs):
+                if np.isnan(days_for_stats[i]):
+                    if run_rates[i] > 1e-9:
+                        days_for_stats[i] = (
+                            start_cum + current_level / run_rates[i]
+                        )
+                    else:
+                        days_for_stats[i] = start_cum + horizon_days
+        else:
+            days_for_stats = days.copy()
+            days_for_stats[np.isnan(days_for_stats)] = (
+                start_cum + horizon_days
+            )
 
         p10 = float(np.percentile(days_for_stats, 90))
         p50 = float(np.percentile(days_for_stats, 50))
         p90 = float(np.percentile(days_for_stats, 10))
-
-        # If percentile is large, cap it at start_cum + horizon_days for display
-        p10 = min(p10, start_cum + horizon_days)
-        p50 = min(p50, start_cum + horizon_days)
-        p90 = min(p90, start_cum + horizon_days)
 
         # Determine commodity and units
         commodity = "fuel" if sid in fuel_ids else "water" if sid in water_ids else "food"
