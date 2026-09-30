@@ -1,4 +1,4 @@
-"""Antarctic Station Digital Twin â€” Streamlit Dashboard (Phase 3).
+"""Antarctic Station Digital Twin - Streamlit Dashboard (Phase 3).
 
 Run with:  streamlit run app.py
 
@@ -176,7 +176,7 @@ with col_badge:
         unsafe_allow_html=True,
     )
 
-st.caption("SIH26060 â€” Digital Platform for Remote Management of Indian Antarctic Research Stations")
+st.caption("SIH26060 - Digital Platform for Remote Management of Indian Antarctic Research Stations")
 
 
 # ---------------------------------------------------------------------------

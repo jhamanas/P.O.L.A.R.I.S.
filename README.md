@@ -1,6 +1,6 @@
 # Antarctic Station Digital Twin
 
-**SIH26060 — Digital Platform for Efficient Remote Management of Indian Antarctic Research Stations**
+**SIH26060 - Digital Platform for Efficient Remote Management of Indian Antarctic Research Stations**
 
 A physics-based digital twin that simulates the energy, thermal, and consumable systems of Indian Antarctic stations (Bharati and Maitri). It forecasts resource exhaustion, generates actionable alerts, and supports what-if scenario analysis — all through an interactive Streamlit dashboard.
 
