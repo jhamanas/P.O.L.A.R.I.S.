@@ -150,6 +150,7 @@ tests/test_replay.py       4 tests   Deterministic replay, performance
 tests/test_phase1.py      13 tests   Energy balance, wind/solar/battery, faults, priority heating
 tests/test_phase2.py      10 tests   Forecast percentiles, alerts, cold-snap exit criterion
 tests/test_phase4.py      11 tests   Scenarios, sensitivity ordering, backtest (both stations)
+tests/test_scenarios.py    3 tests   Scenario preset behavior and scenario utilities
 tests/test_phase5.py      15 tests   RBAC permissions, audit log CRUD, DataSource, provenance
 ```
 
