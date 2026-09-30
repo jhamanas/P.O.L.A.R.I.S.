@@ -853,11 +853,12 @@ with tab_live:
             st.json(live_data)
 
         st.caption(
-            "This data is served by `telemetry_server.py` over REST (GET /latest) "
-            "and WebSockets (ws://localhost:8765/ws). When MoES provides real sensor "
-            "hardware, this endpoint is swapped to the physical station with zero "
-            "dashboard code changes."
-        )
+    "The prototype telemetry layer uses synthetic station data and is served "
+    "by `telemetry_server.py` over REST (GET /latest) and WebSockets "
+    "(ws://localhost:8765/ws). When authorized real station telemetry becomes "
+    "available, the same data-source interface can be connected without "
+    "redesigning the dashboard."
+)
 
 
 # ===== TAB 6: ALERTS =====
