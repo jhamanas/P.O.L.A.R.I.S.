@@ -98,7 +98,7 @@ class AssetGraph:
 
 
 def _strip_meta(d: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of dict with metadata keys (id, label, source, type) removed,
+    """Return a copy of dict with metadata keys (id, label, source) removed,
     leaving only physical parameters."""
-    skip = {"id", "label", "source", "type"}
+    skip = {"id", "label", "source"}
     return {k: v for k, v in d.items() if k not in skip}

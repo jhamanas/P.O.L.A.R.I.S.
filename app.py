@@ -86,25 +86,32 @@ with st.sidebar:
     )
 
     st.divider()
+    
+    can_change = st.session_state.user.role != Role.GUEST
+    
     st.subheader("Environment")
     temp_offset = st.slider(
         "Temperature offset (deg C)", -20.0, 10.0, 0.0, 1.0,
-        help="Shift the entire temperature profile up or down"
+        help="Shift the entire temperature profile up or down",
+        disabled=not can_change
     )
     wind_mult = st.slider(
         "Wind multiplier", 0.5, 2.0, 1.0, 0.1,
-        help="Scale wind speeds (1.0 = normal)"
+        help="Scale wind speeds (1.0 = normal)",
+        disabled=not can_change
     )
 
     st.divider()
     st.subheader("Operations")
     crew_delta = st.slider(
         "Crew change", -10, 10, 0, 1,
-        help="Add or remove crew from the winter complement"
+        help="Add or remove crew from the winter complement",
+        disabled=not can_change
     )
     resupply_delay = st.slider(
         "Resupply delay (days)", 0, 90, 0, 5,
-        help="Days the resupply ship is delayed"
+        help="Days the resupply ship is delayed",
+        disabled=not can_change
     )
 
     st.divider()
@@ -112,13 +119,15 @@ with st.sidebar:
     gen_fault = st.selectbox(
         "Inject generator fault",
         ["None", "Generator 1", "Generator 2", "Generator 3"],
-        help="Force a fault on a specific generator at day 0"
+        help="Force a fault on a specific generator at day 0",
+        disabled=not can_change
     )
 
     st.divider()
-    sim_days = st.slider("Simulation days", 30, 365, 365, 5)
+    sim_days = st.slider("Simulation days", 30, 365, 365, 5, disabled=not can_change)
     forecast_runs = st.slider("Forecast MC runs", 20, 500, 100, 10,
-                              help="More runs = smoother fan chart, slower")
+                              help="More runs = smoother fan chart, slower",
+                              disabled=not can_change)
 
     run_btn = st.button(
         "Run Simulation",
@@ -776,16 +785,43 @@ with tab_live:
             )
     except (_requests.RequestException, ValueError):
         with col_status:
-            st.error(
-                "Cannot reach telemetry server. "
-                "Start it with: `python telemetry_server.py`"
+            st.warning(
+                "Running in Cloud Mode: Real-time telemetry server not reachable. "
+                "Falling back to simulated UI telemetry."
             )
-        st.info(
-            "The telemetry server simulates a real Antarctic station broadcasting "
-            "live sensor data over HTTP and WebSockets. This tab proves the platform's "
-            "architecture is ready to accept real hardware data from MoES."
-        )
-        st.code("python telemetry_server.py", language="bash")
+            
+        import math, random, time
+        _sim_time = int(time.time() / 2) % (365 * 24)
+        _day_of_year = (_sim_time // 24) % 365
+        _season_factor = -math.cos(2 * math.pi * _day_of_year / 365)
+        _temp = -10.0 + 10.0 * _season_factor + random.gauss(0, 2)
+        
+        live_data = {
+            "station": f"{station_name} (cloud mock)",
+            "sim_day": _sim_time // 24,
+            "day_of_year": _day_of_year,
+            "weather": {
+                "temperature_c": round(_temp, 1),
+                "wind_speed_ms": round(7.0 + random.gauss(0, 2), 1),
+            },
+            "heating_demand_kw": round(max(0, (-_temp - 5) * 3.5), 1),
+            "total_gen_kw": 0,
+            "generators": []
+        }
+        
+        for i, g in enumerate(station_config.get("generators", [])):
+            running = random.random() < 0.92
+            load = random.uniform(0.4, 0.95) if running else 0.0
+            live_data["generators"].append({
+                "id": g.get("id", f"gen{i}"),
+                "label": g.get("label", f"Generator {i+1}"),
+                "running": running,
+                "load_pct": round(load * 100, 1),
+                "condition_pct": round(90.0 - i * 5, 1),
+                "fuel_rate_lph": round(load * 25, 1) if running else 0.0,
+            })
+            if running:
+                live_data["total_gen_kw"] += round(load * g.get("max_power_kw", 50.0), 1)
 
     if live_data:
         # --- Weather gauges ---
@@ -843,9 +879,11 @@ with tab_alerts:
                 icon = "info"
                 border_color = "#00CC96"
 
+            is_handled = alert.acknowledged or getattr(alert, "dismissed", False)
+            prefix = "[ACK] " if alert.acknowledged else "[DISMISSED] " if getattr(alert, "dismissed", False) else ""
             with st.expander(
-                f"{'[ACK] ' if alert.acknowledged else ''}[{alert.severity.value}] {alert.cause}",
-                expanded=(alert.severity == AlertSeverity.RED and not alert.acknowledged),
+                f"{prefix}[{alert.severity.value}] {alert.cause}",
+                expanded=(alert.severity == AlertSeverity.RED and not is_handled),
             ):
                 st.markdown(f"**Category:** {alert.category.value.title()}")
                 st.markdown(f"**Cause:** {alert.cause}")
@@ -857,7 +895,7 @@ with tab_alerts:
                                 f"{alert.extra_quantity:,.0f} {alert.extra_quantity_unit}")
 
                 # --- Remote Management Workflow ---
-                if not alert.acknowledged:
+                if not is_handled:
                     can_ack = check_permission(st.session_state.user, "acknowledge_alert")
                     if not can_ack:
                         st.caption("You do not have permission to acknowledge or dismiss alerts.")
@@ -873,7 +911,7 @@ with tab_alerts:
                             st.rerun()
                     with col2:
                         if st.button("Dismiss (False Positive)", key=f"ign_{alert.id}", disabled=not can_ack):
-                            alert.acknowledge()
+                            alert.dismiss()
                             audit_logger.log_action(
                                 st.session_state.user,
                                 "Dismiss Alert",
@@ -881,7 +919,10 @@ with tab_alerts:
                             )
                             st.rerun()
                 else:
-                    st.success("Alert acknowledged and assigned to crew.")
+                    if getattr(alert, "dismissed", False):
+                        st.info("Alert dismissed as false positive.")
+                    else:
+                        st.success("Alert acknowledged and assigned to crew.")
 
 
 # ---------------------------------------------------------------------------

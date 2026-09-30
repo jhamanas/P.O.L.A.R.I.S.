@@ -34,7 +34,7 @@ ROLE_PERMISSIONS: dict[Role, set[str]] = {
                     "run_backtest", "acknowledge_alert", "view_audit"},
     Role.SCIENTIST: {"run_simulation", "run_scenario", "run_sensitivity",
                      "run_backtest", "view_audit"},
-    Role.GUEST: {"view_audit"},
+    Role.GUEST: {"run_simulation", "view_audit"},
 }
 
 

@@ -59,11 +59,16 @@ class Alert:
     extra_quantity: float | None = None  # units depend on commodity
     extra_quantity_unit: str | None = None
     acknowledged: bool = False
+    dismissed: bool = False
     timestamp_hours: float = 0.0
 
     def acknowledge(self) -> None:
         """Mark this alert as acknowledged by a human operator."""
         self.acknowledged = True
+
+    def dismiss(self) -> None:
+        """Mark this alert as dismissed (false positive)."""
+        self.dismissed = True
 
 
 def derive_alerts(

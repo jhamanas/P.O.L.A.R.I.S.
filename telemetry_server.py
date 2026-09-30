@@ -100,7 +100,7 @@ def _build_frame(sim_time: int) -> dict:
         },
         "generators": gen_data,
         "heating_demand_kw": round(heating_kw, 1),
-        "total_gen_kw": round(sum(g["load_pct"] / 100 * 125 for g in gen_data), 1),
+        "total_gen_kw": round(sum(g["load_pct"] / 100 * gen.get("max_power_kw", 125.0) for g, gen in zip(gen_data, generators)), 1),
     }
 
 

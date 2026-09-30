@@ -27,12 +27,14 @@ def test_admin_has_all_permissions():
 
 
 def test_guest_can_only_view_audit():
-    """Guest should only have view_audit permission."""
+    """Guest should only have view_audit and run_simulation permissions."""
     guest = User(username="guest", role=Role.GUEST)
     assert check_permission(guest, "view_audit")
-    assert not check_permission(guest, "run_simulation")
+    assert check_permission(guest, "run_simulation")
     assert not check_permission(guest, "run_scenario")
+    assert not check_permission(guest, "change_params")
     assert not check_permission(guest, "acknowledge_alert")
+    assert not check_permission(guest, "clear_audit")
     assert not check_permission(guest, "clear_audit")
 
 
