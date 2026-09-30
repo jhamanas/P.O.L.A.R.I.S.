@@ -232,7 +232,7 @@ if run_btn:
     with st.spinner("Running Monte Carlo forecast..."):
         forecast = run_cached_forecast(
             mid_state, graph, modified_config, params,
-            forecast_runs, min(sim_days - mid_day, 250), 6.0, resupply_day + resupply_delay
+            forecast_runs, 365, 6.0, resupply_day + resupply_delay
         )
 
     # Derive alerts using the state at mid_day
