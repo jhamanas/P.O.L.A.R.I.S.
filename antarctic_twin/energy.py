@@ -259,8 +259,11 @@ def dispatch_energy(total_demand_kw: float, env: Environment, dt_hours: float,
         new_battery_soc = result.soc
         remaining_demand -= battery_kw
 
-    # ---- 3. Generator dispatch (merit order) ----
-    all_gens = sorted(graph.get_by_type(AssetType.GENERATOR), key=lambda g: g.id)
+    # ---- 3. Generator dispatch (merit order by lowest running hours) ----
+    all_gens = sorted(
+        graph.get_by_type(AssetType.GENERATOR),
+        key=lambda g: (generator_states[g.id].running_hours if g.id in generator_states else 0.0, g.id)
+    )
     total_fuel = 0.0
     total_gen_kw = 0.0
     total_waste_heat = 0.0
@@ -305,14 +308,14 @@ def dispatch_energy(total_demand_kw: float, env: Environment, dt_hours: float,
     
     for g, cap, faulted, reduction in gens_to_run:
         share = gen_demand * (cap / running_cap_total) if running_cap_total > 0 else 0.0
-        result = dispatch_generator(
+        gen_result = dispatch_generator(
             share, dt_hours, g, faulted, reduction,
             gen_efficiency, waste_heat_recovery
         )
-        gen_results[g.id] = result
-        total_fuel += result.fuel_used_l
-        total_gen_kw += result.power_kw
-        total_waste_heat += result.waste_heat_kw
+        gen_results[g.id] = gen_result
+        total_fuel += gen_result.fuel_used_l
+        total_gen_kw += gen_result.power_kw
+        total_waste_heat += gen_result.waste_heat_kw
 
     # Mark non-running generators
     for g in all_gens:

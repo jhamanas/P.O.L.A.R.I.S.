@@ -547,19 +547,19 @@ with tab_station:
 
         delta = target - temp
         if delta > 10:
-            color = [239, 85, 59, 200]
+            rgba_color = [239, 85, 59, 200]
         elif delta > 5:
-            color = [255, 176, 32, 200]
+            rgba_color = [255, 176, 32, 200]
         elif delta > 2:
-            color = [255, 161, 90, 200]
+            rgba_color = [255, 161, 90, 200]
         else:
-            color = [0, 204, 150, 200]
+            rgba_color = [0, 204, 150, 200]
 
         building_data.append({
             "name": label,
             "coordinates": [lon + (i * 0.0015) - 0.001, lat],
             "elevation": max(zs.heating_demand_kw * 1.5, 10),
-            "color": color,
+            "color": rgba_color,
             "temp": f"{temp:.1f}",
             "target": f"{target:.0f}",
             "demand": f"{zs.heating_demand_kw:.0f}",
@@ -570,17 +570,17 @@ with tab_station:
     for i, (gid, gs) in enumerate(gens_3d):
         label = gid.split(".")[-1].upper()
         if gs.faulted:
-            color = [239, 85, 59, 220]
+            rgba_color = [239, 85, 59, 220]
         elif gs.running:
-            color = [0, 204, 150, 220]
+            rgba_color = [0, 204, 150, 220]
         else:
-            color = [80, 80, 80, 180]
+            rgba_color = [80, 80, 80, 180]
 
         building_data.append({
             "name": f"{label} ({'FAULT' if gs.faulted else f'{gs.load_fraction*100:.0f}%'})",
             "coordinates": [lon + (i * 0.0012) - 0.0005, lat - 0.0008],
             "elevation": max(gs.load_fraction * 80, 8),
-            "color": color,
+            "color": rgba_color,
             "temp": f"Cond: {gs.condition:.0%}",
             "target": f"Wear: {(1-gs.condition):.0%}",
             "demand": f"{gs.running_hours:.0f}h run",

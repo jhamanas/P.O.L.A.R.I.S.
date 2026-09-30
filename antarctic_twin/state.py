@@ -183,8 +183,21 @@ def step(state: StationState, env: Environment, dt: float,
         ua_base = envelope_area / r_value
         ua_wind = wind_ua_coeff * envelope_area * env.wind_speed
         ua_total = ua_base + ua_wind
-        thermal_mass = rho * volume * cp * 5.0
-        demand_w = max(0.0, ua_total * (target_temp - env.temperature))
+        
+        # Real structural thermal mass (approx 50x air mass for typical polar structures)
+        thermal_mass = rho * volume * cp * 50.0
+        
+        # Internal heat gain: ~100W per person (distributed by zone) + 1W/m3 for equipment
+        crew_fraction = 1.0 / max(1, len(zones_sorted))
+        internal_gain_w = (s.crew_count * crew_fraction * 100.0) + (volume * 1.0)
+        
+        # Solar heat gain: assume 1% effective envelope absorption (minimal windows)
+        solar_gain_w = env.solar_irradiance * envelope_area * 0.01
+        
+        total_gains_w = internal_gain_w + solar_gain_w
+        raw_heat_loss = ua_total * (target_temp - env.temperature)
+        demand_w = max(0.0, raw_heat_loss - total_gains_w)
+        
         total_heating_demand_w += demand_w
 
         zone_thermal.append({
@@ -193,6 +206,7 @@ def step(state: StationState, env: Environment, dt: float,
             "thermal_mass": thermal_mass,
             "target_temp": target_temp,
             "demand_w": demand_w,
+            "total_gains_w": total_gains_w,
         })
     
     total_heating_demand_kw = total_heating_demand_w / 1000.0
@@ -304,9 +318,10 @@ def step(state: StationState, env: Environment, dt: float,
         heating_w = zone_heating_allocation[zt["id"]]
         ua = zt["ua_total"]
         C = zt["thermal_mass"]
+        gains_w = zt["total_gains_w"]
 
         # Implicit Euler
-        numerator = C * zs.temperature + dt_seconds * (ua * env.temperature + heating_w)
+        numerator = C * zs.temperature + dt_seconds * (ua * env.temperature + heating_w + gains_w)
         denominator = C + dt_seconds * ua
         zs.temperature = numerator / denominator
         zs.heating_kw = heating_w / 1000.0
