@@ -57,7 +57,7 @@ python -m pytest tests/ -v
 | Feature | Description |
 |---|---|
 | **Lumped-RC Thermal Model** | Implicit Euler integration for zone temperatures with priority-based heating (living > lab > workshop) |
-| **3D Spatial Model** | Live interactive 3D map (pydeck) rendering station zones extruded by heating demand and colored by thermal stress |
+| **3D Station Model** | Interactive pydeck visualization of station zones and equipment, with height representing demand/load and visual status representing thermal or equipment condition |
 | **Telemetry Interface** | Standalone WebSocket/REST telemetry service using synthetic station data, designed for replacement with authorized real station feeds |
 | **Energy Dispatch** | Merit-order generator dispatch, wind turbine (cubic power curve), solar array, battery storage with DOD limits |
 | **Predictive Maintenance** | Equipment wear-and-tear increases dynamically under high load (MTBF scaling), triggering pre-emptive warnings |
