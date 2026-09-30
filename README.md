@@ -1,4 +1,6 @@
-# Antarctic Station Digital Twin
+﻿# Antarctic Station Digital Twin
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060.streamlit.app)
 
 **SIH26060 - Digital Platform for Efficient Remote Management of Indian Antarctic Research Stations**
 
@@ -99,7 +101,7 @@ tests/                          73 tests across 8 test files
 ## Test Suite
 
 ```
-70 tests, 8 files, ~60 seconds
+73 tests, 9 files, ~60 seconds
 
 tests/test_config.py      5 tests   Config loading and validation
 tests/test_weather.py      5 tests   Weather generator determinism and bounds
