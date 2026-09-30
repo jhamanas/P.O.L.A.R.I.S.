@@ -10,11 +10,17 @@ Features:
   - SVG station plan with zones coloured by status
 """
 
+import math
+import random
+import time
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
+import pydeck as pdk
+import requests as _requests
 import streamlit as st
 from plotly.subplots import make_subplots
 
@@ -544,9 +550,6 @@ with tab_energy:
 
 # ===== TAB 4: STATION PLAN (3D Digital Twin) =====
 with tab_station:
-    import pandas as pd
-    import pydeck as pdk
-
     st.subheader("3D Spatial Model")
     st.caption(
         "Station zones extruded by heating demand and colored by thermal stress. "
@@ -748,8 +751,6 @@ with tab_station:
 
 # ===== TAB 5: LIVE TELEMETRY =====
 with tab_live:
-    import requests as _requests
-
     st.subheader("Live Station Telemetry")
 
     TELEMETRY_URL = "http://localhost:8765/latest"
@@ -761,13 +762,12 @@ with tab_live:
 
     if auto_refresh:
         # Use st.empty + time-based rerun for auto-refresh
-        import time as _time
         if "last_refresh" not in st.session_state:
             st.session_state.last_refresh = 0
-        now = _time.time()
+        now = time.time()
         if now - st.session_state.last_refresh > 5:
             st.session_state.last_refresh = now
-            _time.sleep(0.1)
+            time.sleep(0.1)
             st.rerun()
 
     # Fetch live data
@@ -790,7 +790,6 @@ with tab_live:
                 "Falling back to simulated UI telemetry."
             )
             
-        import math, random, time
         _sim_time = int(time.time() / 2) % (365 * 24)
         _day_of_year = (_sim_time // 24) % 365
         _season_factor = -math.cos(2 * math.pi * _day_of_year / 365)
