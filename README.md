@@ -1,6 +1,6 @@
 ﻿# Antarctic Station Digital Twin
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060.streamlit.app)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060-runtimeerror01.streamlit.app)
 
 **SIH26060 - Digital Platform for Efficient Remote Management of Indian Antarctic Research Stations**
 
