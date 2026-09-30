@@ -155,24 +155,32 @@ tests/test_phase5.py      15 tests   RBAC permissions, audit log CRUD, DataSourc
 
 ---
 
-## Key Physics
+## Mathematical & Physics Models
 
-- **Thermal:** `T_new = (C·T_old + dt·(UA·T_amb + Q_heat)) / (C + dt·UA)` (implicit Euler, stable)
-- **Fuel:** Load-dependent interpolation between half-load and full-load consumption rates
-- **Electrical:** `base_kw + snowmelt_kw + heating_supplement_kw`, waste heat from generators covers ~34 kW of heating
-- **Wind:** Cubic power curve with cut-in (3 m/s), rated (12 m/s), cut-out (25 m/s)
-- **Condition:** Linear degradation: `max(0, 1 - hours / (2 × MTBF))`
-- **Faults:** Poisson process with rate increasing as condition degrades
-- **Crew:** Auto-switches between summer (23) and winter (15) crew based on day-of-year
+This digital twin is built upon deterministic, rigorously backtested mathematical and physical models rather than arbitrary rule engines:
 
-### Forecast Convention
+### 1. Lumped-Capacitance (RC) Thermal Model
+Models indoor station temperatures as a thermal circuit equivalent. We use **Implicit Euler integration** to guarantee mathematical stability across large time-steps, even during sudden extreme blizzards.
+- **Governing Equation:** `T_new = (C * T_old + dt * (UA * T_amb + Q_heat)) / (C + dt * UA)`
 
-We use **reserves-estimation convention** for percentiles:
-- **P10** = optimistic (90th percentile of exhaustion day) — fuel lasts *longer*
-- **P50** = median
-- **P90** = pessimistic (10th percentile of exhaustion day) — fuel runs out *earlier*
+### 2. AR(1) Stochastic Weather Generator
+Generates realistic future weather profiles (wind and temperature) using a **First-Order Autoregressive Model**. It layers Gaussian seasonal noise and a Poisson process to inject random severe storm events based on historical MoES observations.
 
-`margin_days = P50_exhaustion − resupply_day`. Positive = safe, negative = runs out before resupply.
+### 3. MTBF Degradation & Poisson Fault Model
+Drives the predictive maintenance engine. Generator wear-and-tear scales dynamically based on real-time load fractions rather than static time. 
+- **Wear Condition:** `max(0, 1 - running_hours / (2 * MTBF))`
+- **Fault Generation:** As condition degrades, the probability of failure increases according to a dynamically scaled **Poisson process**.
+
+### 4. Monte Carlo Probabilistic Forecasting
+Projects 500 independent timeline branches to estimate consumable lifespans under varying weather conditions.
+- **Reserves-Estimation Convention:** 
+  - **P10 (Optimistic):** 90th percentile of exhaustion day (fuel lasts longer).
+  - **P50 (Median):** Median expectation.
+  - **P90 (Pessimistic):** 10th percentile of exhaustion day (fuel runs out earlier).
+- **Safety Margin:** `margin_days = P50_exhaustion - resupply_day`.
+
+### 5. Cubic Wind Power Curve
+Models renewable wind generation dynamically using a cubic velocity curve bounded by turbine cut-in (3 m/s), rated (12 m/s), and cut-out (25 m/s) wind speeds.
 
 ---
 
@@ -189,4 +197,6 @@ View them in the **Provenance & Audit** tab or by reading `params.yaml` directly
 ## License
 
 This project was built for the Smart India Hackathon 2026 (SIH26060).
+
+
 
