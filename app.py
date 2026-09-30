@@ -514,7 +514,9 @@ with tab_station:
     )
 
     # --- Build 3D data for pydeck ---
-    lat, lon = -69.408, 76.193  # Bharati station coordinates
+    _loc = station_config.get("location", {})
+    lat = _loc.get("lat", -69.4)
+    lon = _loc.get("lon", 76.2)
     zones = list(final.zones.items())
     zone_assets = {a.id: a for a in graph.get_by_type(AssetType.ZONE)}
 

@@ -422,10 +422,10 @@ def _vary_temp(cfg: dict, offset: float) -> dict:
 def _vary_wind(cfg: dict, mult: float) -> dict:
     cfg = copy.deepcopy(cfg)
     weather = cfg.setdefault("weather", {})
-    if "wind_mean" in weather:
-        entry = dict(weather["wind_mean"])
+    if "avg_wind" in weather:
+        entry = dict(weather["avg_wind"])
         entry["value"] = entry["value"] * mult
-        weather["wind_mean"] = entry
+        weather["avg_wind"] = entry
     return cfg
 
 
