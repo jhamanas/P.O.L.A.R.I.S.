@@ -71,8 +71,19 @@ python -m pytest tests/ -v
 | **RBAC & Audit Log** | 4 roles (Admin/Operator/Scientist/Guest), SQLite audit trail, parameter provenance page |
 | **Second Station by Config** | Maitri works purely from YAML — no code changes. Drop a new YAML to add a third station. |
 
----
 
+## Tech Stack & Open-Source Libraries
+
+This platform leverages several powerful open-source Python libraries to handle everything from 3D spatial rendering to heavy numerical simulations:
+
+- **Frontend & UI:** [Streamlit](https://streamlit.io/) (Core dashboard framework)
+- **3D Spatial Rendering:** [PyDeck / deck.gl](https://deckgl.readthedocs.io/) (Interactive 3D maps and extruded station layouts)
+- **Charting & Data Viz:** [Plotly](https://plotly.com/python/) (Interactive Monte Carlo fan charts and Sensitivity tornado charts)
+- **Data & Math Engine:** [NumPy](https://numpy.org/) & [Pandas](https://pandas.pydata.org/) (High-performance arrays for evaluating 500+ Monte Carlo branches)
+- **Live Telemetry Server:** [FastAPI](https://fastapi.tiangolo.com/) & [Uvicorn](https://www.uvicorn.org/) (High-performance async REST and WebSocket mocking)
+- **Configuration:** [PyYAML](https://pyyaml.org/) (Human-readable station and physics configurations)
+
+---
 ## Architecture
 
 ```
@@ -178,3 +189,4 @@ View them in the **Provenance & Audit** tab or by reading `params.yaml` directly
 ## License
 
 This project was built for the Smart India Hackathon 2026 (SIH26060).
+
