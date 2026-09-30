@@ -244,6 +244,7 @@ forecast = st.session_state.forecast
 alerts = st.session_state.alerts
 graph = st.session_state.graph
 params = st.session_state.params
+station_config = st.session_state.station_config
 resupply_day_eff = st.session_state.resupply_day
 mid_day = st.session_state.mid_day
 final = result.final_state
