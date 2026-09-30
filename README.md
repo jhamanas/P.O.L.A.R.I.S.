@@ -66,7 +66,7 @@ python -m pytest tests/ -v
 | **Actionable Workflows** | Alerts feature interactive "Acknowledge" and "Dismiss" dispatch buttons with automatic audit logging |
 | **Scenario Presets** | Cold Snap, Prolonged Blizzard, Delayed Resupply, Generator Failure, Crew Surge, Combined Winter Isolation |
 | **Sensitivity Analysis** | Tornado chart varying 6 parameters ±20% to identify dominant risk factors |
-| **Calibration Backtest** | 8 physical plausibility checks run against both stations |
+| **Calibration Backtest** | 7 physical plausibility checks run against both stations |
 | **RBAC & Audit Log** | 4 roles (Admin/Operator/Scientist/Guest), SQLite audit trail, parameter provenance page |
 | **Second Station by Config** | Maitri works purely from YAML — no code changes. Drop a new YAML to add a third station. |
 
