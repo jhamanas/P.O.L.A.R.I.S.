@@ -1,4 +1,4 @@
-﻿# Antarctic Station Digital Twin
+﻿# **P.O.L.A.R.I.S. (Predictive Operations & Logistics for Antarctic Research & Indian Stations)**
 
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060-runtimeerror01.streamlit.app)
 
