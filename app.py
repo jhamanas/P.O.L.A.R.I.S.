@@ -176,7 +176,7 @@ with col_badge:
         unsafe_allow_html=True,
     )
 
-st.caption("SIH26060 - Digital Platform for Remote Management of Indian Antarctic Research Stations")
+st.caption("Digital Platform for Remote Management of Indian Antarctic Research Stations")
 
 
 # ---------------------------------------------------------------------------
@@ -1188,7 +1188,7 @@ with tab_provenance:
         st.subheader("System Information")
 
         st.markdown("**Platform:** Antarctic Station Digital Twin")
-        st.markdown("**Problem Statement:** SIH26060 - Digital Platform for Remote Management of Indian Antarctic Research Stations")
+        st.markdown("**Problem Statement:** Digital Platform for Remote Management of Indian Antarctic Research Stations")
         st.markdown("**Data Sources:** YAML configuration files (local)")
 
         st.divider()
