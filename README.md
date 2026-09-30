@@ -58,7 +58,7 @@ python -m pytest tests/ -v
 |---|---|
 | **Lumped-RC Thermal Model** | Implicit Euler integration for zone temperatures with priority-based heating (living > lab > workshop) |
 | **3D Spatial Model** | Live interactive 3D map (pydeck) rendering station zones extruded by heating demand and colored by thermal stress |
-| **Real-Time Telemetry** | Standalone WebSocket/REST mock server streaming synthetic live sensor data, ready for real hardware integration |
+| **Telemetry Interface** | Standalone WebSocket/REST telemetry service using synthetic station data, designed for replacement with authorized real station feeds |
 | **Energy Dispatch** | Merit-order generator dispatch, wind turbine (cubic power curve), solar array, battery storage with DOD limits |
 | **Predictive Maintenance** | Equipment wear-and-tear increases dynamically under high load (MTBF scaling), triggering pre-emptive warnings |
 | **Consumable Tracking** | Fuel (load-dependent burn curve), water (snow-melt coupling), food depletion |
