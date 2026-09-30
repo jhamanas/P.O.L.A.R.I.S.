@@ -88,7 +88,7 @@ This platform leverages several powerful open-source Python libraries to handle 
 
 ```
 app.py                          Streamlit dashboard (9 tabs)
-telemetry_server.py             FastAPI server mocking live MoES sensor feeds (WebSocket + REST)
+telemetry_server.py             FastAPI synthetic telemetry service with REST + WebSocket interfaces
 antarctic_twin/
   types.py                      Shared enums and dataclasses
   config.py                     YAML loading and validation
@@ -117,7 +117,7 @@ tests/                          73 tests across 8 test files
 2. **Forecast** — Monte Carlo fan chart with P10/P50/P90 bands and resupply deadline
 3. **Energy** — Generation mix, battery SOC, heating demand vs waste heat, generator status
 4. **Station Plan** — 3D spatial map (pydeck) with extruded zones, plus a collapsible 2D layout
-5. **Live Telemetry** — Real-time sensor feed polled from `telemetry_server.py`
+5. **Telemetry** — Synthetic station telemetry through the REST/WebSocket interface
 6. **Alerts** — Actionable alert cards (Acknowledge / Dismiss workflows)
 7. **Scenarios** — Preset selector with baseline vs scenario diff and fuel comparison
 8. **Validation** — Sensitivity tornado chart and calibration backtest
