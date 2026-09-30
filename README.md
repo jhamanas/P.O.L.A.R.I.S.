@@ -1,5 +1,5 @@
 ﻿# **P.O.L.A.R.I.S. (Predictive Operations & Logistics for Antarctic Research & Indian Stations)**
-
+**Next-generation telemetry and forecasting for India's polar missions.**
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://sih26060-runtimeerror01.streamlit.app)
 
 ## SIH 2026 Submission
