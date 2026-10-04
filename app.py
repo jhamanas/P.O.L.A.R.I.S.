@@ -1128,7 +1128,7 @@ with tab_validation:
                 "You do not have permission to run the physical plausibility checks."
             )
 
-        if st.button("Run Backtest", key="backtest_btn", disabled=not can_run_bt):
+        if st.button("Run Plausibility Checks", key="backtest_btn", disabled=not can_run_bt):
             station_file = BASE / "stations" / f"{station_name}.yaml"
             params_file = BASE / "params.yaml"
 
