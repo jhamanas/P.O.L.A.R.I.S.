@@ -4,12 +4,12 @@ A scenario is a lightweight overlay on top of a baseline simulation.
 It modifies weather, crew, resupply, and/or injects faults.  The runner
 produces both baseline and scenario results so a diff view is trivial.
 
-Sensitivity analysis varies each parameter by +/-20 % one at a time and
-measures the impact on fuel-exhaustion day, producing data for a tornado
-chart.
+Sensitivity analysis varies each parameter by +/-20% one at a time and
+measures the impact on fuel remaining at the end of the simulation,
+producing data for a tornado chart.
 
-The calibration backtest runs the baseline for a full year and checks
-that key outputs fall within defensible physical bounds.
+The physical plausibility checks run the baseline for a full year and
+verify that key outputs stay within documented engineering bounds.
 """
 
 from __future__ import annotations
@@ -208,6 +208,19 @@ def fork_scenario(station_config: dict, params: dict,
         crew = cfg.setdefault("crew", {})
         crew["winter"] = max(1, crew.get("winter", 15) + spec.crew_delta)
 
+    # Resupply delay
+    if spec.resupply_delay_days != 0:
+        resupply = cfg.setdefault("resupply", {})
+        base_resupply_day = float(
+            resupply.get(
+                "nominal_day",
+                param_value(params, "resupply_default_day"),
+            )
+        )
+        resupply["nominal_day"] = (
+            base_resupply_day + spec.resupply_delay_days
+        )
+
     return cfg
 
 
@@ -300,7 +313,7 @@ class SensitivityPoint:
     baseline_value: float
     low_value: float     # metric at -20%
     high_value: float    # metric at +20%
-    unit: str = "days"
+    unit: str = "L"
 
 
 def _find_fuel_remaining(result: SimulationResult) -> float:
@@ -327,8 +340,8 @@ def run_sensitivity(
 ) -> list[SensitivityPoint]:
     """Run +/-20% sensitivity analysis on key parameters.
 
-    Varies one parameter at a time and measures the fuel remaining at the end of the year.
-    Returns data suitable for a tornado chart.
+    Varies one parameter at a time and measures the fuel remaining at
+    the end of the simulation. Returns data suitable for a tornado chart.
     """
     station_config = load_station(station_path)
     params = load_params(params_path)
@@ -440,7 +453,7 @@ def _scale_param(params: dict, key: str, factor: float | None) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Calibration backtest
+# Physical plausibility checks
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -459,10 +472,9 @@ def run_backtest(
     params_path: str | Path,
     seed: int = 42,
 ) -> list[BacktestCheck]:
-    """Run calibration backtest: check that model outputs fall within
-    defensible physical bounds for a full-year run.
+    """Run physical plausibility checks for a full-year baseline run.
 
-    Returns a list of pass/fail checks.
+    Returns a list of pass/fail checks against documented engineering bounds.
     """
     station_config = load_station(station_path)
     params = load_params(params_path)

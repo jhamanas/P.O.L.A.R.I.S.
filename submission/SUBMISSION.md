@@ -55,7 +55,6 @@ Actionable alert and recommendation
 - SQLite
 - YAML
 - Pytest
-- Ruff
 
 ## Prototype Data
 
@@ -82,4 +81,4 @@ simulation and dashboard layers.
 - RBAC and audit logging
 - Parameter provenance
 - Sensitivity analysis
-- Calibration checks
+- Physical plausibility and sanity checks

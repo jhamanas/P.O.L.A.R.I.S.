@@ -99,11 +99,24 @@ class SimulationEngine:
         # Resupply day
         from .config import param_value
         resupply_cfg = self.station_config.get("resupply", {})
-        resupply_day = resupply_cfg.get("nominal_day", param_value(self.params, "resupply_default_day"))
-        last_day_of_year = (state.time_hours / 24.0) % 365.25
+        resupply_day = float(
+            resupply_cfg.get(
+                "nominal_day",
+                param_value(self.params, "resupply_default_day"),
+            )
+        )
+
+        # Treat the resupply event as a cumulative simulation day.
+        # This preserves the normal day-350 refill while allowing delayed
+        # scenarios such as day 410 to represent a genuine later arrival.
+        next_resupply_day = resupply_day
+
+        while next_resupply_day <= state.time_hours / 24.0:
+            next_resupply_day += 365.0
 
         for i in range(total_steps):
-            day_of_year = (state.time_hours / 24.0) % 365.25
+            current_sim_day = state.time_hours / 24.0
+            day_of_year = current_sim_day % 365.25
 
             # Auto crew switch: Antarctic summer = Nov-Feb (days 0-60, 320-365)
             is_summer = day_of_year < 60 or day_of_year >= 320
@@ -112,27 +125,33 @@ class SimulationEngine:
                 state = state.copy()
                 state.crew_count = target_crew
 
-            # Apply resupply if we just crossed the resupply day
-            # This logic works whether resupply_day is crossed normally or wrapped around
-            crossed_resupply = (last_day_of_year < resupply_day <= day_of_year) or \
-                               (last_day_of_year > day_of_year and (last_day_of_year < resupply_day or resupply_day <= day_of_year))
-            
+            # Apply resupply when the simulation crosses the cumulative
+            # resupply event date.
+            step_end_day = current_sim_day + dt_hours / 24.0
+            crossed_resupply = current_sim_day < next_resupply_day <= step_end_day
+
             if crossed_resupply:
                 state = state.copy()
-                # Refill all storage assets (fuel, water, food) to their initial level / capacity
+
+                # Refill all storage assets to their configured
+                # initial/capacity level.
                 for asset in self.graph.get_by_type(AssetType.STORAGE):
                     if asset.id in state.storage:
-                        # Resupply to capacity (or initial_level if defined)
-                        target_level = asset.params.get("initial_level_l", asset.params.get("capacity_l", 0.0))
-                        # For food (kg)
+                        target_level = asset.params.get(
+                            "initial_level_l",
+                            asset.params.get("capacity_l", 0.0),
+                        )
+
+                        # Food uses kilograms.
                         if "initial_level_kg" in asset.params:
                             target_level = asset.params["initial_level_kg"]
                         elif "capacity_kg" in asset.params:
                             target_level = asset.params["capacity_kg"]
-                            
+
                         state.storage[asset.id].level = target_level
-                        
-            last_day_of_year = day_of_year
+
+                # Schedule the next annual resupply event.
+                next_resupply_day += 365.0
 
             # Generate weather
             env = self.weather.get_weather(day_of_year, dt_hours)

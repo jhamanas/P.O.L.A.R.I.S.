@@ -269,7 +269,7 @@ final = result.final_state
 # Tab layout
 # ---------------------------------------------------------------------------
 tab_overview, tab_forecast, tab_energy, tab_station, tab_live, tab_alerts, tab_scenarios, tab_validation, tab_provenance = st.tabs(
-    ["Overview", "Forecast", "Energy", "Station Plan", "Live Telemetry", "Alerts", "Scenarios", "Validation", "Provenance & Audit"]
+    ["Overview", "Forecast", "Energy", "Station Plan", "Telemetry", "Alerts", "Scenarios", "Validation", "Provenance & Audit"]
 )
 
 
@@ -749,9 +749,9 @@ with tab_station:
         - Generator: :green[Green] = Running | :red[Red] = Faulted | Grey = Standby
         """)
 
-# ===== TAB 5: LIVE TELEMETRY =====
+# ===== TAB 5: TELEMETRY =====
 with tab_live:
-    st.subheader("Live Station Telemetry")
+    st.subheader("Telemetry Interface")
 
     TELEMETRY_URL = "http://localhost:8765/latest"
 
@@ -786,8 +786,7 @@ with tab_live:
     except (_requests.RequestException, ValueError):
         with col_status:
             st.warning(
-                "Running in Cloud Mode: Real-time telemetry server not reachable. "
-                "Falling back to simulated UI telemetry."
+                "Cloud telemetry server not reachable. Falling back to synthetic UI telemetry."
             )
             
         _sim_time = int(time.time() / 2) % (365 * 24)
@@ -1050,11 +1049,14 @@ with tab_scenarios:
 
 # ===== TAB 7: VALIDATION =====
 with tab_validation:
-    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Calibration Backtest"])
+    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Physical Plausibility Checks"])
 
     with val_tab1:
-        st.subheader("Sensitivity Tornado Chart")
-        st.caption("Each parameter varied +/-20%. Impact measured as change in fuel exhaustion day.")
+        st.subheader("Fuel Reserve Sensitivity")
+        st.caption(
+            "Each parameter varied +/-20%. Impact measured as change in fuel "
+            "remaining at the end of the simulation."
+        )
 
         can_run_sens = check_permission(st.session_state.user, "run_sensitivity")
         if not can_run_sens:
@@ -1076,7 +1078,7 @@ with tab_validation:
             fig_tornado = go.Figure()
 
             labels = [s.parameter for s in sensitivity]
-            baseline_val = sensitivity[0].baseline_value if sensitivity else 365
+            baseline_val = sensitivity[0].baseline_value if sensitivity else 0
             low_deltas = [s.low_value - baseline_val for s in sensitivity]
             high_deltas = [s.high_value - baseline_val for s in sensitivity]
 
@@ -1093,8 +1095,8 @@ with tab_validation:
 
             fig_tornado.update_layout(
                 height=400,
-                title=f"Fuel Exhaustion Day Sensitivity (baseline: day {baseline_val:.0f})",
-                xaxis_title="Change in exhaustion day (days)",
+                title=f"Fuel Reserve Sensitivity (baseline: {baseline_val:,.0f} L)",
+                xaxis_title="Change in fuel remaining (L)",
                 barmode="overlay",
                 margin={"l": 150, "r": 20, "t": 60, "b": 30},
             )
@@ -1106,26 +1108,31 @@ with tab_validation:
             for s in sensitivity:
                 table_data.append({
                     "Parameter": s.parameter,
-                    f"{s.low_label}": f"Day {s.low_value:.0f}",
-                    "Baseline": f"Day {s.baseline_value:.0f}",
-                    f"{s.high_label}": f"Day {s.high_value:.0f}",
-                    "Swing": f"{abs(s.high_value - s.low_value):.0f} days",
+                    f"{s.low_label}": f"{s.low_value:,.0f} L",
+                    "Baseline": f"{s.baseline_value:,.0f} L",
+                    f"{s.high_label}": f"{s.high_value:,.0f} L",
+                    "Swing": f"{abs(s.high_value - s.low_value):,.0f} L",
                 })
             st.table(table_data)
 
     with val_tab2:
-        st.subheader("Calibration Backtest")
-        st.caption("Checks that model outputs fall within defensible physical bounds.")
+        st.subheader("Physical Plausibility & Sanity Checks")
+        st.caption(
+            "Checks that model outputs fall within defensible physical bounds "
+            "using documented engineering assumptions."
+        )
 
         can_run_bt = check_permission(st.session_state.user, "run_backtest")
         if not can_run_bt:
-            st.caption("You do not have permission to run the calibration backtest.")
+            st.caption(
+                "You do not have permission to run the physical plausibility checks."
+            )
 
         if st.button("Run Backtest", key="backtest_btn", disabled=not can_run_bt):
             station_file = BASE / "stations" / f"{station_name}.yaml"
             params_file = BASE / "params.yaml"
 
-            with st.spinner("Running calibration backtest..."):
+            with st.spinner("Running physical plausibility checks..."):
                 checks = run_backtest(station_file, params_file)
 
             st.session_state.backtest = checks

@@ -1,7 +1,8 @@
 """Phase 4 tests: scenarios, presets, sensitivity, backtest."""
 
 from antarctic_twin.alerts import AlertSeverity
-from antarctic_twin.config import load_station
+from antarctic_twin.config import load_params, load_station
+from antarctic_twin.engine import SimulationEngine
 from antarctic_twin.scenarios import (
     PRESETS,
     Scenario,
@@ -127,24 +128,24 @@ def test_sensitivity_ordered_by_impact():
 
 
 # ================================================================
-# Calibration backtest
+# Physical plausibility checks
 # ================================================================
 
 def test_backtest_all_checks_pass():
-    """All calibration backtest checks should pass for Bharati baseline."""
+    """All physical plausibility checks should pass for the Bharati baseline."""
     checks = run_backtest(STATION, PARAMS)
     assert len(checks) >= 6
 
     for check in checks:
         assert check.passed, (
-            f"Backtest FAILED: {check.name}\n"
+            f"Validation FAILED: {check.name}\n"
             f"  Expected: {check.expected_range}\n"
             f"  Actual: {check.actual_value:.2f} {check.unit}"
         )
 
 
 def test_backtest_maitri_passes():
-    """Backtest should also pass for Maitri (second station by config)."""
+    """Physical plausibility checks should also pass for Maitri."""
     maitri = BASE / "stations" / "maitri.yaml"
     checks = run_backtest(maitri, PARAMS)
     for check in checks:
@@ -153,3 +154,41 @@ def test_backtest_maitri_passes():
             f"  Expected: {check.expected_range}\n"
             f"  Actual: {check.actual_value:.2f} {check.unit}"
         )
+
+def test_delayed_resupply_changes_actual_simulation_event():
+    """Delayed resupply must affect the actual stock refill in the simulation."""
+    cfg = load_station(STATION)
+    params = load_params(PARAMS)
+
+    delayed = Scenario(
+        name="Delayed Test",
+        resupply_delay_days=60.0,
+    )
+
+    delayed_cfg = fork_scenario(cfg, params, delayed)
+
+    # Normal resupply = day 350, delayed = day 410.
+    assert delayed_cfg["resupply"]["nominal_day"] == 410.0
+
+    baseline = SimulationEngine(cfg, params, seed=42).run(days=420)
+    delayed_result = SimulationEngine(
+        delayed_cfg, params, seed=42
+    ).run(days=420)
+
+    fuel_id = next(
+        sid for sid in baseline.history[0].storage
+        if "fuel" in sid
+    )
+
+    # By day 360, baseline has already received the day-350 refill,
+    # while delayed resupply has not yet arrived.
+    baseline_day_360 = baseline.history[360 * 24].storage[fuel_id].level
+    delayed_day_360 = delayed_result.history[360 * 24].storage[fuel_id].level
+
+    assert baseline_day_360 > delayed_day_360
+
+    # Delayed resupply occurs at day 410 and should visibly increase stock.
+    delayed_day_409 = delayed_result.history[409 * 24].storage[fuel_id].level
+    delayed_day_420 = delayed_result.history[420 * 24].storage[fuel_id].level
+
+    assert delayed_day_420 > delayed_day_409

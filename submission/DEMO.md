@@ -6,7 +6,11 @@ https://sih26060-runtimeerror01.streamlit.app
 
 ## Demo Video
 
-PASTE FINAL VIDEO LINK HERE
+https://youtu.be/ChBrQIZ_AVk
+
+## Presentation
+
+https://canva.link/upyityba6pvdtff
 
 ## Recommended Demonstration Flow
 
