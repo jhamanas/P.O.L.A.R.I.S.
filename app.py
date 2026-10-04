@@ -749,7 +749,7 @@ with tab_station:
         - Generator: :green[Green] = Running | :red[Red] = Faulted | Grey = Standby
         """)
 
-# ===== TAB 5: LIVE TELEMETRY =====
+# ===== TAB 5: TELEMETRY =====
 with tab_live:
     st.subheader("Telemetry Interface")
 
@@ -786,8 +786,7 @@ with tab_live:
     except (_requests.RequestException, ValueError):
         with col_status:
             st.warning(
-                "Running in Cloud Mode: Real-time telemetry server not reachable. "
-                "Falling back to simulated UI telemetry."
+                "Cloud telemetry server not reachable. Falling back to synthetic UI telemetry."
             )
             
         _sim_time = int(time.time() / 2) % (365 * 24)
