@@ -1049,7 +1049,7 @@ with tab_scenarios:
 
 # ===== TAB 7: VALIDATION =====
 with tab_validation:
-    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Calibration Backtest"])
+    val_tab1, val_tab2 = st.tabs(["Sensitivity Analysis", "Physical Plausibility Checks"])
 
     with val_tab1:
         st.subheader("Fuel Reserve Sensitivity")
@@ -1078,7 +1078,7 @@ with tab_validation:
             fig_tornado = go.Figure()
 
             labels = [s.parameter for s in sensitivity]
-            baseline_val = sensitivity[0].baseline_value if sensitivity else 365
+            baseline_val = sensitivity[0].baseline_value if sensitivity else 0
             low_deltas = [s.low_value - baseline_val for s in sensitivity]
             high_deltas = [s.high_value - baseline_val for s in sensitivity]
 
