@@ -1,7 +1,7 @@
 """Phase 4 tests: scenarios, presets, sensitivity, backtest."""
 
 from antarctic_twin.alerts import AlertSeverity
-from antarctic_twin.config import load_station, load_params
+from antarctic_twin.config import load_params, load_station
 from antarctic_twin.engine import SimulationEngine
 from antarctic_twin.scenarios import (
     PRESETS,
