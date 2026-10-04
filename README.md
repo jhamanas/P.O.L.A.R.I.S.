@@ -67,7 +67,7 @@ python -m pytest tests/ -v
 | **Actionable Workflows** | Alerts feature interactive "Acknowledge" and "Dismiss" dispatch buttons with automatic audit logging |
 | **Scenario Presets** | Cold Snap, Prolonged Blizzard, Delayed Resupply, Generator Failure, Crew Surge, Combined Winter Isolation |
 | **Sensitivity Analysis** | Tornado chart varying 6 parameters ±20% to identify dominant risk factors |
-| **Calibration Backtest** | 7 physical plausibility checks run against both stations |
+| **Physical Plausibility Checks** | 7 physical plausibility checks run against both stations |
 | **RBAC & Audit Log** | 4 roles (Admin/Operator/Scientist/Guest), SQLite audit trail, parameter provenance page |
 | **Second Station by Config** | Maitri works purely from YAML — no code changes. Drop a new YAML to add a third station. |
 
@@ -120,7 +120,7 @@ tests/                          73 tests across 8 test files
 5. **Telemetry** — Synthetic station telemetry through the REST/WebSocket interface
 6. **Alerts** — Actionable alert cards (Acknowledge / Dismiss workflows)
 7. **Scenarios** — Preset selector with baseline vs scenario diff and fuel comparison
-8. **Validation** — Sensitivity tornado chart and calibration backtest
+8. **Validation** — Sensitivity analysis and physical plausibility checks
 9. **Provenance & Audit** — Parameter source citations, audit log, system info
 
 ---
@@ -198,6 +198,5 @@ View them in the **Provenance & Audit** tab or by reading `params.yaml` directly
 ## License
 
 This project was built for the Smart India Hackathon 2026 (SIH26060).
-
 
 
