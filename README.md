@@ -16,6 +16,11 @@
 
 Live prototype: https://sih26060-runtimeerror01.streamlit.app
 
+### Final Submission Links
+
+- **Demo Video:** https://youtu.be/ChBrQIZ_AVk
+- **Presentation:** https://canva.link/upyityba6pvdtff
+
 ### Data Disclaimer
 
 This prototype uses **synthetic/simulated telemetry and engineering assumptions** because operational Maitri/Bharati station telemetry is not publicly available to the project team.
@@ -106,7 +111,7 @@ stations/
   bharati.yaml                  Bharati station configuration
   maitri.yaml                   Maitri station configuration
 params.yaml                     Global parameters with source citations
-tests/                          74 tests across 8 test files
+tests/                          74 tests across 9 test files
 ```
 
 ---
