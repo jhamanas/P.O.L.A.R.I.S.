@@ -208,6 +208,19 @@ def fork_scenario(station_config: dict, params: dict,
         crew = cfg.setdefault("crew", {})
         crew["winter"] = max(1, crew.get("winter", 15) + spec.crew_delta)
 
+    # Resupply delay
+    if spec.resupply_delay_days != 0:
+        resupply = cfg.setdefault("resupply", {})
+        base_resupply_day = float(
+            resupply.get(
+                "nominal_day",
+                param_value(params, "resupply_default_day"),
+            )
+        )
+        resupply["nominal_day"] = (
+            base_resupply_day + spec.resupply_delay_days
+        )
+
     return cfg
 
 
