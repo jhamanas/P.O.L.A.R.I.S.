@@ -128,24 +128,24 @@ def test_sensitivity_ordered_by_impact():
 
 
 # ================================================================
-# Calibration backtest
+# Physical plausibility checks
 # ================================================================
 
 def test_backtest_all_checks_pass():
-    """All calibration backtest checks should pass for Bharati baseline."""
+    """All physical plausibility checks should pass for the Bharati baseline."""
     checks = run_backtest(STATION, PARAMS)
     assert len(checks) >= 6
 
     for check in checks:
         assert check.passed, (
-            f"Backtest FAILED: {check.name}\n"
+            f"Validation FAILED: {check.name}\n"
             f"  Expected: {check.expected_range}\n"
             f"  Actual: {check.actual_value:.2f} {check.unit}"
         )
 
 
 def test_backtest_maitri_passes():
-    """Backtest should also pass for Maitri (second station by config)."""
+    """Physical plausibility checks should also pass for Maitri."""
     maitri = BASE / "stations" / "maitri.yaml"
     checks = run_backtest(maitri, PARAMS)
     for check in checks:
