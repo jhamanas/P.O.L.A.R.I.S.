@@ -99,14 +99,14 @@ antarctic_twin/
   engine.py                     Simulation engine (wires weather + step loop)
   forecast.py                   Monte Carlo forecaster
   alerts.py                     Alert engine (6 categories)
-  scenarios.py                  Scenario spec, 6 presets, sensitivity, backtest
+  scenarios.py                  Scenario spec, 6 presets, sensitivity, physical plausibility checks
   database.py                   RBAC, SQLite audit log, provenance
   interfaces.py                 DataSource abstraction (YAML / future API)
 stations/
   bharati.yaml                  Bharati station configuration
   maitri.yaml                   Maitri station configuration
 params.yaml                     Global parameters with source citations
-tests/                          73 tests across 8 test files
+tests/                          74 tests across 8 test files
 ```
 
 ---
@@ -141,7 +141,7 @@ tests/                          73 tests across 8 test files
 ## Test Suite
 
 ```
-73 tests, 9 files, ~60 seconds
+74 tests, 9 files, ~60 seconds
 
 tests/test_config.py      5 tests   Config loading and validation
 tests/test_weather.py      5 tests   Weather generator determinism and bounds
@@ -149,7 +149,7 @@ tests/test_step.py         7 tests   Step contract, immutability, no negative st
 tests/test_replay.py       4 tests   Deterministic replay, performance
 tests/test_phase1.py      13 tests   Energy balance, wind/solar/battery, faults, priority heating
 tests/test_phase2.py      10 tests   Forecast percentiles, alerts, cold-snap exit criterion
-tests/test_phase4.py      11 tests   Scenarios, sensitivity ordering, backtest (both stations)
+tests/test_phase4.py      12 tests   Scenarios, sensitivity ordering, physical plausibility checks (both stations)
 tests/test_scenarios.py    3 tests   Scenario preset behavior and scenario utilities
 tests/test_phase5.py      15 tests   RBAC permissions, audit log CRUD, DataSource, provenance
 ```
@@ -158,7 +158,7 @@ tests/test_phase5.py      15 tests   RBAC permissions, audit log CRUD, DataSourc
 
 ## Mathematical & Physics Models
 
-This digital twin is built upon deterministic, rigorously backtested mathematical and physical models rather than arbitrary rule engines:
+This digital twin is built upon deterministic, physically motivated mathematical models supported by plausibility and sensitivity checks rather than arbitrary rule engines:
 
 ### 1. Lumped-Capacitance (RC) Thermal Model
 Models indoor station temperatures as a thermal circuit equivalent. We use **Implicit Euler integration** to guarantee mathematical stability across large time-steps, even during sudden extreme blizzards.
